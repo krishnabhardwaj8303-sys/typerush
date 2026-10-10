@@ -25,7 +25,7 @@ client/   React UI, Canvas race renderer, typing engine, audio, localStorage pro
 
 * Gameplay: only the next expected character advances your car; wrong keys count as errors and never move you. No backspace.
 * Metrics: WPM = correct characters / 5 / minutes. Accuracy = correct keystrokes / all keystrokes.
-* AI: keystroke-level simulation (speed, accuracy, rhythm drift). Levels 1-20 raise speed, text length and difficulty.
+* AI: keystroke-level simulation (speed, accuracy, rhythm drift). 100 levels (25 per difficulty, each with its own track) raise speed, text length and difficulty.
 * Multiplayer: the server creates the text, sets the start time (all clients sync to the server clock), validates every
   progress update against a human speed limit (22 chars/s) and computes finishing order, WPM, accuracy and points.
   Clients can never declare a winner. Impossible updates 3 times in a race = disqualification.

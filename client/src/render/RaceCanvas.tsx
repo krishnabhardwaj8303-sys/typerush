@@ -26,7 +26,10 @@ export function RaceCanvas({ stateRef, lanes, label }: Props) {
       width = Math.max(280, Math.round(rect.width));
       // Big race area: tall enough for several rows of winding road and U-turns.
       const ratio = width < 560 ? 1.0 : width < 820 ? 0.7 : 0.54;
-      height = Math.round(Math.min(Math.max(width * ratio, 320), 540));
+      const byWidth = Math.min(Math.max(width * ratio, 320), 540);
+      // Never taller than about half of the window, so the typing line stays on screen.
+      const cap = Math.max(320, Math.round(window.innerHeight * 0.56));
+      height = Math.round(Math.min(byWidth, cap));
       canvas.style.height = `${height}px`;
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);

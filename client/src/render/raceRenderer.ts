@@ -308,13 +308,16 @@ function smooth01(t: number): number {
  */
 export function buildGeometry(spec: TrackSpec, w: number, h: number, lanes: number): Geometry {
   const rng = createRng(spec.seed);
-  const laneW = clamp(Math.min(w, h) * 0.05, 15, 28);
+  const laneW = clamp(Math.min(w, h * 1.3) * 0.036, 12, 21);
   const roadW = laneW * lanes;
   const margin = 18;
   const top = margin + roadW / 2 + 8;
   const bottom = h - margin - roadW / 2 - 8;
   const maxRows = Math.max(2, Math.floor((bottom - top) / (roadW + 22)) + 1);
-  const rows = clamp(spec.turns + 1, 2, maxRows);
+  // The road always fills the whole scene: easy tracks use ~80% of the possible rows, the most
+  // twisty ones use every row that fits.
+  const fill = 0.78 + 0.22 * (clamp(spec.turns, 1, 8) / 8);
+  const rows = clamp(Math.round(maxRows * fill), 2, maxRows);
   const spacing = (bottom - top) / (rows - 1);
   const radius = spacing / 2;
 

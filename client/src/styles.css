@@ -194,7 +194,7 @@ input[type="range"] { accent-color: var(--pink); width: 100%; }
 .standing-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .standing-pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .typing-wrap { position: relative; }
-.typing { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 18px 20px; cursor: text; min-height: 130px; }
+.typing { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 14px 20px; cursor: text; min-height: 104px; }
 .typing-active { border-color: var(--cyan); box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12); }
 .typing-text { font-family: var(--mono); font-size: clamp(1.15rem, 3.6vw, 1.7rem); line-height: 1.7; word-break: break-word; }
 .t-done { color: var(--green); }
@@ -281,3 +281,10 @@ input[type="range"] { accent-color: var(--pink); width: 100%; }
 .track-name { position: absolute; top: 10px; right: 12px; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; background: rgba(8, 12, 30, 0.72); border: 1px solid var(--line); pointer-events: none; }
 .track-tag { color: var(--cyan); font-weight: 700; }
 .level-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+
+/* ---------- Moving typing ticker: typed letters slide away, new ones arrive ---------- */
+.ticker { position: relative; overflow: hidden; white-space: pre; word-break: normal; line-height: 1.9; padding: 4px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 93%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 93%, transparent 100%); }
+.ticker-track { display: inline-block; margin-left: 30%; transition: transform 90ms linear; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .ticker-track { transition: none; } }

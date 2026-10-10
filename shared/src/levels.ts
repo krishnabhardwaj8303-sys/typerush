@@ -2,10 +2,10 @@ import type { AiProfile } from './ai';
 import type { CarId, Difficulty } from './types';
 
 export interface LevelDef {
-  /** 1..40, global order. */
+  /** 1..100, global order. */
   id: number;
   difficulty: Difficulty;
-  /** 1..10 inside its difficulty. */
+  /** 1..25 inside its difficulty. */
   tier: number;
   name: string;
   chars: number;
@@ -62,26 +62,38 @@ const BOT_CARS: Record<Difficulty, [CarId, CarId, CarId]> = {
 const LEVEL_NAMES: Record<Difficulty, string[]> = {
   easy: [
     'Home Row Warm-up', 'Garage Door', 'Sunny Street', 'Park Loop', 'Village Lane',
-    'School Run', 'Market Road', 'Lakeside Drive', 'Hill Climb', 'Easy Finale',
+    'School Run', 'Market Road', 'Lakeside Drive', 'Hill Climb', 'Bakery Bend',
+    'Farm Track', 'Cycle Path', 'Tea Stall Turn', 'Rickshaw Row', 'Temple Road',
+    'Riverbank Ride', 'Garden Gate', 'Bridge Lane', 'Fair Ground', 'Orchard Loop',
+    'Station Road', 'Sunrise Strip', 'Meadow Run', 'Harvest Haul', 'Easy Finale',
   ],
   medium: [
     'City Cruise', 'Main Avenue', 'Harbour Road', 'Midtown Sprint', 'Riverside Run',
-    'Old Town Loop', 'Airport Link', 'Bridge Dash', 'Downtown Rush', 'Medium Finale',
+    'Old Town Loop', 'Airport Link', 'Bridge Dash', 'Downtown Rush', 'Metro Mile',
+    'Market Maze', 'Cinema Circuit', 'Tower Turn', 'Bazaar Blitz', 'Flyover Fast',
+    'Ring Road', 'Stadium Sprint', 'Tech Park Run', 'Port Pursuit', 'Sunset Boulevard',
+    'Rush Hour', 'Skybridge Sprint', 'Night Market', 'Overpass Open', 'Medium Finale',
   ],
   hard: [
     'Mountain Pass', 'Desert Highway', 'Coastal Curves', 'Night Tunnel', 'Canyon Run',
-    'Forest Twist', 'Glacier Road', 'Highland Fling', 'Thunder Road', 'Hard Finale',
+    'Forest Twist', 'Glacier Road', 'Highland Fling', 'Thunder Road', 'Cliffside Chase',
+    'Dune Dash', 'Switchback Sprint', 'Misty Mile', 'Ravine Rally', 'Frostbite Pass',
+    'Storm Chaser', 'Lava Lane', 'Eagle Ridge', 'Crosswind Run', 'Hairpin Haven',
+    'Avalanche Alley', 'Summit Surge', 'Ghost Road', 'Red Rock Run', 'Hard Finale',
   ],
   expert: [
     'Neon Circuit', 'Grand Prix', 'Storm Run', 'Turbo Tunnel', 'Volcano Rim',
-    'Skyline Sprint', 'Lunar Loop', 'Redline Rally', 'Blitz Boulevard', 'TypeRush Final',
+    'Skyline Sprint', 'Lunar Loop', 'Redline Rally', 'Blitz Boulevard', 'Nitro Nights',
+    'Photon Pass', 'Overdrive Oval', 'Apex Alley', 'Quantum Quarter', 'Meltdown Mile',
+    'Crimson Circuit', 'Gravity Gauntlet', 'Hyper Highway', 'Zero-G Zone', 'Thunderdome',
+    'WarpWay', 'Supernova Sprint', 'Black Hole Bend', 'Champion Chase', 'TypeRush Final',
   ],
 };
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * 10 tiers per difficulty. Speed, text length, accuracy requirement and track
+ * 25 tiers per difficulty. Speed, text length, accuracy requirement and track
  * twistiness all grow smoothly, so the whole campaign gets harder step by step.
  */
 function buildTiers(difficulty: Difficulty): Tier[] {
@@ -91,38 +103,38 @@ function buildTiers(difficulty: Difficulty): Tier[] {
       case 'easy':
         return {
           name,
-          chars: 24 + i * 8, // 24 .. 96
-          baseWpm: round1(8 + 2 * i), // 8 .. 26
-          accuracy: Math.round(90 + i * 0.6),
-          minAccuracy: Math.round(60 + i * 1.6), // 60 .. 74
-          turns: 1 + Math.floor(i / 3), // 1 .. 4
+          chars: 24 + i * 4, // 24 .. 120
+          baseWpm: round1(8 + i), // 8 .. 32
+          accuracy: Math.round(90 + i * 0.25),
+          minAccuracy: Math.round(60 + i * 0.6), // 60 .. 74
+          turns: 1 + Math.floor(i / 6), // 1 .. 5
         };
       case 'medium':
         return {
           name,
-          chars: 100 + i * 20, // 100 .. 280
-          baseWpm: round1(28 + 2.5 * i), // 28 .. 50.5
-          accuracy: Math.round(93 + i * 0.3),
-          minAccuracy: Math.round(75 + i), // 75 .. 84
-          turns: 2 + Math.floor(i / 3), // 2 .. 5
+          chars: 100 + i * 8, // 100 .. 292
+          baseWpm: round1(33 + 0.9 * i), // 33 .. 54.6
+          accuracy: Math.round(93 + i * 0.12),
+          minAccuracy: Math.round(75 + i * 0.42), // 75 .. 85
+          turns: 2 + Math.floor(i / 6), // 2 .. 6
         };
       case 'hard':
         return {
           name,
-          chars: 180 + i * 25, // 180 .. 405
-          baseWpm: round1(52 + 2.8 * i), // 52 .. 77.2
-          accuracy: Math.round(95 + i * 0.2),
-          minAccuracy: Math.round(85 + i * 0.6), // 85 .. 90
-          turns: 3 + Math.floor(i / 3), // 3 .. 6
+          chars: 180 + i * 10, // 180 .. 420
+          baseWpm: round1(55 + 1.2 * i), // 55 .. 83.8
+          accuracy: Math.round(95 + i * 0.08),
+          minAccuracy: Math.round(85 + i * 0.21), // 85 .. 90
+          turns: 3 + Math.floor(i / 6), // 3 .. 7
         };
       default:
         return {
           name,
-          chars: 240 + i * 30, // 240 .. 510
-          baseWpm: round1(80 + 4 * i), // 80 .. 116
-          accuracy: Math.round(96 + i * 0.2),
-          minAccuracy: Math.round(88 + i * 0.45), // 88 .. 92
-          turns: 4 + Math.floor(i / 3), // 4 .. 7
+          chars: 240 + i * 12, // 240 .. 528
+          baseWpm: round1(85 + 1.8 * i), // 85 .. 128.2
+          accuracy: Math.round(96 + i * 0.08),
+          minAccuracy: Math.round(88 + i * 0.17), // 88 .. 92
+          turns: 4 + Math.floor(i / 6), // 4 .. 8
         };
     }
   });
@@ -159,7 +171,7 @@ export const LEVELS: LevelDef[] = (() => {
         chars: tier.chars,
         minAccuracy: tier.minAccuracy,
         topBotWpm: Math.max(...opponents.map((o) => o.wpm)),
-        // Every difficulty walks through all 10 themes, starting at a different one.
+        // Every difficulty walks through all 10 themes (repeating), starting at a different one.
         theme: (index + difficultyIndex * 3) % TRACK_THEME_NAMES.length,
         turns: tier.turns,
         opponents,

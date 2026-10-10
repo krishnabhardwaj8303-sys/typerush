@@ -24,14 +24,16 @@ export function TypingPanel({ text, pos, wrongTick, active, onTap, inputRef, onI
       role="group"
       aria-label="Typing area. Type the highlighted text."
     >
-      <div className="typing-text" aria-hidden="true">
-        <span className="t-done">{typed}</span>
-        {!done && (
-          <span key={wrongTick} className={`t-cursor ${wrongTick > 0 ? 't-wrong' : ''}`}>
-            {current === ' ' ? '\u00a0' : current}
-          </span>
-        )}
-        <span className="t-rest">{rest}</span>
+      <div className="typing-text ticker" aria-hidden="true">
+        <div className="ticker-track" style={{ transform: `translateX(-${pos}ch)` }}>
+          <span className="t-done">{typed}</span>
+          {!done && (
+            <span key={wrongTick} className={`t-cursor ${wrongTick > 0 ? 't-wrong' : ''}`}>
+              {current === ' ' ? '\u00a0' : current}
+            </span>
+          )}
+          <span className="t-rest">{rest}</span>
+        </div>
       </div>
       <span className="sr-only">
         {done ? 'Finished typing.' : `Next character: ${current === ' ' ? 'space' : current}`}

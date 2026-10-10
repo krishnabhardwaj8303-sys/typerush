@@ -50,7 +50,7 @@ describe('profile storage', () => {
     for (const raw of [null, '', 'not json', '[]', '{"name": 5}', '{"completed": {"1": "x", "99": 3}}']) {
       const p = parseProfile(raw);
       expect(p.name.length).toBeGreaterThan(0);
-      expect(Object.keys(p.completed).every((k) => Number(k) >= 1 && Number(k) <= 20)).toBe(true);
+      expect(Object.keys(p.completed).every((k) => Number(k) >= 1 && Number(k) <= 100)).toBe(true);
     }
   });
 

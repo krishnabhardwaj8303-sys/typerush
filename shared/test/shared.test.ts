@@ -176,9 +176,9 @@ describe('AI typists', () => {
 });
 
 describe('levels', () => {
-  it('defines 40 levels, 10 per difficulty, with rising difficulty', () => {
-    expect(LEVELS).toHaveLength(40);
-    for (const d of DIFFICULTIES) expect(levelsFor(d)).toHaveLength(10);
+  it('defines 100 levels, 25 per difficulty, with rising difficulty', () => {
+    expect(LEVELS).toHaveLength(100);
+    for (const d of DIFFICULTIES) expect(levelsFor(d)).toHaveLength(25);
     for (let i = 1; i < LEVELS.length; i++) {
       expect(LEVELS[i].topBotWpm).toBeGreaterThan(LEVELS[i - 1].topBotWpm);
       expect(LEVELS[i].chars).toBeGreaterThanOrEqual(
@@ -196,7 +196,7 @@ describe('levels', () => {
     for (const d of DIFFICULTIES) {
       const turns = levelsFor(d).map((l) => l.turns);
       expect(turns).toEqual([...turns].sort((x, y) => x - y));
-      // all 10 themes appear exactly once per difficulty
+      // every difficulty uses all 10 themes
       expect(new Set(levelsFor(d).map((l) => l.theme)).size).toBe(10);
     }
   });

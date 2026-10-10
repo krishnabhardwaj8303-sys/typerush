@@ -50,6 +50,11 @@ export function App() {
   }, []);
 
   const room = online.room;
+  // Every new screen (or restarted race) opens at the top, so the whole track is visible.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [route, room?.status]);
+
   const inRace = route.name === 'solo' || (!!room && room.status !== 'lobby');
   useEffect(() => {
     audio.setMusicWanted(!inRace);
