@@ -1,0 +1,27 @@
+{
+  "name": "typerush",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TypeRush - Type Fast. Drive Faster. Win the Race.",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "start:server": "npm run start -w server",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
+    "test": "npm run test -w shared && npm run test -w server && npm run test -w client"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "concurrently": "^10.0.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

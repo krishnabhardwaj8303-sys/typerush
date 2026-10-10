@@ -1,0 +1,17 @@
+# Optional Render "Blueprint" for the multiplayer server (free web service).
+# You can also create the service by hand in the Render dashboard; see README.md.
+services:
+  - type: web
+    name: typerush-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:server
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: CLIENT_ORIGINS
+        sync: false # you enter your frontend URL (https://...) in the dashboard
