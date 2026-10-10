@@ -1,10 +1,11 @@
-import { LEVELS, getLevel, isLevelUnlocked, levelsFor, randomSeed } from '@typerush/shared';
+import { DIFFICULTY_LABEL, LEVELS, getLevel, isLevelUnlocked, levelsFor, randomSeed } from '@typerush/shared';
 import { CarArt } from '../components/CarArt';
 import { audio } from '../lib/audio';
 import { useProfile } from '../lib/ProfileContext';
+import { activeStreak, dailyDoneToday, dailyInfo, dayKey } from '../lib/rewards';
 import { totalStars } from '../lib/storage';
 import type { Go } from '../routes';
-import { levelToConfig } from './levelConfig';
+import { dailyConfig, levelToConfig } from './levelConfig';
 
 export function Home({ go }: { go: Go }) {
   const { profile } = useProfile();
@@ -13,6 +14,10 @@ export function Home({ go }: { go: Go }) {
   const cleared = Object.keys(profile.completed).length;
   const allDone = cleared >= LEVELS.length;
   const bestWpm = Math.max(0, ...Object.values(profile.bestWpm));
+  const today = dayKey();
+  const daily = dailyInfo(today);
+  const dailyDone = dailyDoneToday(profile, today);
+  const streak = activeStreak(profile.streak, today);
 
   const click = (route: Parameters<Go>[0]) => () => {
     audio.unlock();
@@ -36,7 +41,7 @@ export function Home({ go }: { go: Go }) {
         </div>
         <p className="tagline">Type Fast. Drive Faster. Win the Race.</p>
         <div className="hero-car">
-          <CarArt car={profile.car} size={260} animate={!profile.settings.reduceMotion} />
+          <CarArt car={profile.car} skin={profile.skin} size={260} animate={!profile.settings.reduceMotion} />
           <div className="hero-road" aria-hidden="true" />
         </div>
         <button className="btn btn-primary btn-xl" onClick={playCampaign}>
@@ -46,6 +51,26 @@ export function Home({ go }: { go: Go }) {
           {allDone ? 'You cleared every level - amazing!' : `Next up: ${nextLevel.name}`}
         </p>
       </section>
+
+      <button
+        className={dailyDone ? 'daily-card daily-done' : 'daily-card'}
+        onClick={() => {
+          audio.unlock();
+          audio.click();
+          go({ name: 'solo', config: dailyConfig(today), attempt: 0 });
+        }}
+      >
+        <span className="daily-tag">Daily Challenge</span>
+        <strong>
+          {dailyDone
+            ? `Done today: best ${Math.round(profile.daily?.best.wpm ?? 0)} WPM. Try to beat it!`
+            : `Today's race: ${DIFFICULTY_LABEL[daily.difficulty]} - same text for everyone`}
+        </strong>
+        <span className="muted">
+          {dailyDone ? 'Play again' : 'First finish gives +30 coins'} &middot;{' '}
+          {streak > 0 ? `${streak} day streak` : 'Start a streak today'}
+        </span>
+      </button>
 
       <nav className="menu-grid" aria-label="Main menu">
         <button className="menu-card" onClick={click({ name: 'quick' })}>
@@ -77,15 +102,19 @@ export function Home({ go }: { go: Go }) {
       </nav>
 
       <aside className="profile-card" aria-label="Your profile">
-        <CarArt car={profile.car} size={96} />
+        <CarArt car={profile.car} skin={profile.skin} size={96} />
         <div className="profile-info">
           <strong>{profile.name}</strong>
           <span className="muted">
             {profile.totalPoints} pts &middot; {profile.wins} wins &middot; best {Math.round(bestWpm)} WPM
           </span>
+          <span className="muted">
+            <span className="coin" aria-hidden="true" /> {profile.coins} coins &middot;{' '}
+            {Object.keys(profile.badges).length} badges
+          </span>
         </div>
         <button className="btn" onClick={click({ name: 'garage' })}>
-          Change name &amp; car
+          Garage &amp; Shop
         </button>
       </aside>
     </div>

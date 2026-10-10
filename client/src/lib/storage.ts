@@ -1,4 +1,5 @@
 import {
+  CARS,
   CAR_IDS,
   DIFFICULTIES,
   LEVELS,
@@ -6,6 +7,7 @@ import {
   type CarId,
   type Difficulty,
 } from '@typerush/shared';
+import { FREE_SKINS, FREE_TRAILS, SKIN_IDS, TRAIL_IDS, isSkinId, isTrailId, type SkinId, type TrailId } from './shop';
 
 export interface Settings {
   musicOn: boolean;
@@ -13,9 +15,11 @@ export interface Settings {
   musicVolume: number;
   sfxVolume: number;
   reduceMotion: boolean;
+  /** Size of the moving typing line: m = normal, l = large, xl = extra large. */
+  textSize: 'm' | 'l' | 'xl';
 }
 
-export type RaceMode = 'level' | 'quick' | 'friends' | 'public';
+export type RaceMode = 'level' | 'quick' | 'friends' | 'public' | 'daily';
 
 export interface HistoryEntry {
   at: number;
@@ -28,6 +32,27 @@ export interface HistoryEntry {
   position: number;
   racers: number;
   finished: boolean;
+}
+
+export interface Streak {
+  /** Days in a row with at least one finished race. */
+  count: number;
+  best: number;
+  /** Local date (YYYY-MM-DD) of the last finished race, or null. */
+  lastDay: string | null;
+}
+
+export interface DailyState {
+  /** Local date (YYYY-MM-DD) of the Daily Challenge this record belongs to. */
+  day: string;
+  plays: number;
+  best: { wpm: number; accuracy: number; score: number };
+}
+
+export interface Owned {
+  cars: CarId[];
+  skins: SkinId[];
+  trails: TrailId[];
 }
 
 export interface Profile {
@@ -44,6 +69,17 @@ export interface Profile {
   wins: number;
   history: HistoryEntry[];
   settings: Settings;
+  /** Spendable coins and the total ever earned. */
+  coins: number;
+  lifetimeCoins: number;
+  streak: Streak;
+  /** badgeId -> time it was earned. */
+  badges: Record<string, number>;
+  stats: { perfectRaces: number; dailiesDone: number };
+  daily: DailyState | null;
+  owned: Owned;
+  skin: SkinId;
+  trail: TrailId;
 }
 
 export const STORAGE_KEY = 'typerush.profile.v1';
@@ -73,8 +109,33 @@ export function defaultProfile(): Profile {
     races: 0,
     wins: 0,
     history: [],
-    settings: { musicOn: true, sfxOn: true, musicVolume: 0.5, sfxVolume: 0.7, reduceMotion: false },
+    settings: { musicOn: true, sfxOn: true, musicVolume: 0.5, sfxVolume: 0.7, reduceMotion: false, textSize: 'm' },
+    coins: 0,
+    lifetimeCoins: 0,
+    streak: { count: 0, best: 0, lastDay: null },
+    badges: {},
+    stats: { perfectRaces: 0, dailiesDone: 0 },
+    daily: null,
+    owned: defaultOwned(),
+    skin: 'plain',
+    trail: 'none',
   };
+}
+
+export function defaultOwned(): Owned {
+  return {
+    cars: CARS.filter((c) => c.price === 0).map((c) => c.id),
+    skins: [...FREE_SKINS],
+    trails: [...FREE_TRAILS],
+  };
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function idList<T extends string>(value: unknown, valid: readonly T[], free: readonly T[]): T[] {
+  const out = new Set<T>(free);
+  if (Array.isArray(value)) for (const v of value) if ((valid as readonly unknown[]).includes(v)) out.add(v as T);
+  return [...out];
 }
 
 function num(value: unknown, fallback: number, min = 0, max = 1e9): number {
@@ -109,6 +170,44 @@ export function parseProfile(raw: string | null): Profile {
         ) as HistoryEntry[]).slice(0, MAX_HISTORY)
       : [];
 
+    const owned: Owned = {
+      cars: idList(data.owned && (data.owned as Partial<Owned>).cars, CAR_IDS, defaultOwned().cars),
+      skins: idList(data.owned && (data.owned as Partial<Owned>).skins, SKIN_IDS, FREE_SKINS),
+      trails: idList(data.owned && (data.owned as Partial<Owned>).trails, TRAIL_IDS, FREE_TRAILS),
+    };
+    const car = isCarId(data.car) && owned.cars.includes(data.car) ? data.car : CAR_IDS[0];
+    const skin = isSkinId(data.skin) && owned.skins.includes(data.skin) ? data.skin : 'plain';
+    const trail = isTrailId(data.trail) && owned.trails.includes(data.trail) ? data.trail : 'none';
+
+    const st = (data.streak ?? {}) as Partial<Streak>;
+    const streak: Streak = {
+      count: num(st.count, 0, 0, 100000),
+      best: num(st.best, 0, 0, 100000),
+      lastDay: typeof st.lastDay === 'string' && DAY_RE.test(st.lastDay) ? st.lastDay : null,
+    };
+    streak.best = Math.max(streak.best, streak.count);
+
+    const badges: Record<string, number> = {};
+    if (data.badges && typeof data.badges === 'object') {
+      for (const [id, at] of Object.entries(data.badges as Record<string, unknown>)) {
+        if (/^[a-z0-9-]{1,32}$/.test(id) && typeof at === 'number' && Number.isFinite(at)) badges[id] = at;
+      }
+    }
+    const stats = (data.stats ?? {}) as Partial<Profile['stats']>;
+    const dRaw = data.daily as Partial<DailyState> | null | undefined;
+    const daily: DailyState | null =
+      dRaw && typeof dRaw.day === 'string' && DAY_RE.test(dRaw.day)
+        ? {
+            day: dRaw.day,
+            plays: num(dRaw.plays, 1, 1, 10000),
+            best: {
+              wpm: num(dRaw.best?.wpm, 0, 0, 400),
+              accuracy: num(dRaw.best?.accuracy, 0, 0, 100),
+              score: num(dRaw.best?.score, 0, 0, 1e6),
+            },
+          }
+        : null;
+
     return {
       version: 1,
       playerToken:
@@ -116,7 +215,7 @@ export function parseProfile(raw: string | null): Profile {
           ? data.playerToken
           : base.playerToken,
       name: typeof data.name === 'string' && data.name.trim() ? data.name.slice(0, 14) : base.name,
-      car: isCarId(data.car) ? data.car : CAR_IDS[0],
+      car,
       completed,
       bestWpm,
       bestAccuracy,
@@ -130,7 +229,20 @@ export function parseProfile(raw: string | null): Profile {
         musicVolume: num(s.musicVolume, base.settings.musicVolume, 0, 1),
         sfxVolume: num(s.sfxVolume, base.settings.sfxVolume, 0, 1),
         reduceMotion: typeof s.reduceMotion === 'boolean' ? s.reduceMotion : base.settings.reduceMotion,
+        textSize: s.textSize === 'l' || s.textSize === 'xl' ? s.textSize : 'm',
       },
+      coins: num(data.coins, 0, 0, 1e9),
+      lifetimeCoins: num(data.lifetimeCoins, 0, 0, 1e9),
+      streak,
+      badges,
+      stats: {
+        perfectRaces: num(stats.perfectRaces, 0, 0, 1e7),
+        dailiesDone: num(stats.dailiesDone, 0, 0, 1e5),
+      },
+      daily,
+      owned,
+      skin,
+      trail,
     };
   } catch {
     return base;

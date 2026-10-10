@@ -5,6 +5,7 @@ import { ResultsView } from '../components/ResultsView';
 import type { HudStats, StandingRow } from '../components/Hud';
 import { audio } from '../lib/audio';
 import { useProfile } from '../lib/ProfileContext';
+import type { Reward } from '../lib/rewards';
 import { TypingSession } from '../lib/typingSession';
 import { useTypingInput } from '../lib/useTypingInput';
 import { useOnline } from '../net/OnlineContext';
@@ -53,6 +54,7 @@ export function OnlineRace({ go }: { go: Go }) {
   const goDone = useRef(false);
   const goUntil = useRef(0);
   const savedRef = useRef(false);
+  const [reward, setReward] = useState<Reward | null>(null);
 
   const [pos, setPos] = useState(session.pos);
   const [wrongTick, setWrongTick] = useState(0);
@@ -210,6 +212,8 @@ export function OnlineRace({ go }: { go: Go }) {
         finished: session.done,
         position: me?.position ?? null,
         offline: online.status !== 'online',
+        skin: profile.skin,
+        trail: profile.trail,
       });
 
       const state = renderRef.current;
@@ -253,7 +257,7 @@ export function OnlineRace({ go }: { go: Go }) {
       cancelAnimationFrame(raf);
       audio.stopEngine();
     };
-  }, [canType, online, profile.car, profile.name, reduceMotion, session, text.length]);
+  }, [canType, online, profile.car, profile.name, profile.skin, profile.trail, reduceMotion, session, text.length]);
 
   // Save the validated result to the local profile exactly once.
   const results = online.results;
@@ -261,7 +265,7 @@ export function OnlineRace({ go }: { go: Go }) {
   useEffect(() => {
     if (!results || !myRow || savedRef.current) return;
     savedRef.current = true;
-    addRace({
+    const earned = addRace({
       mode: room.type === 'public' ? 'public' : 'friends',
       difficulty: room.difficulty,
       wpm: myRow.wpm,
@@ -271,6 +275,7 @@ export function OnlineRace({ go }: { go: Go }) {
       racers: results.rows.length,
       finished: myRow.finished,
     });
+    setReward(earned);
   }, [addRace, myRow, results, room.difficulty, room.type]);
 
   const leaveToMenu = async () => {
@@ -304,6 +309,7 @@ export function OnlineRace({ go }: { go: Go }) {
           youId={online.selfId ?? ''}
           difficulty={room.difficulty}
           reduceMotion={reduceMotion}
+          reward={reward}
           banner={
             myRow?.disqualified
               ? { tone: 'warn', text: 'You were disqualified because your typing speed was not humanly possible.' }

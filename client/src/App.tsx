@@ -61,6 +61,10 @@ export function App() {
   }, [inRace]);
 
   useEffect(() => {
+    document.documentElement.dataset.textSize = profile.settings.textSize;
+  }, [profile.settings.textSize]);
+
+  useEffect(() => {
     document.documentElement.dataset.reduceMotion = profile.settings.reduceMotion ? 'true' : 'false';
   }, [profile.settings.reduceMotion]);
 
@@ -97,9 +101,15 @@ export function App() {
         break;
       case 'solo': {
         const { config } = route;
-        const exit = () => go(config.mode === 'level' ? { name: 'levels' } : { name: 'quick' });
+        const exit = () =>
+          go(config.mode === 'level' ? { name: 'levels' } : config.mode === 'daily' ? { name: 'home' } : { name: 'quick' });
+        // The Daily Challenge keeps its seed, so a retry is the same text for the same day.
         const retry = () =>
-          go({ name: 'solo', attempt: route.attempt + 1, config: { ...config, seed: randomSeed() } });
+          go({
+            name: 'solo',
+            attempt: route.attempt + 1,
+            config: config.mode === 'daily' ? config : { ...config, seed: randomSeed() },
+          });
         const next = config.levelId ? nextLevelOf(config.levelId) : undefined;
         screen = (
           <SoloRace

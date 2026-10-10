@@ -27,6 +27,10 @@ export function TopBar({ title, onBack, backLabel = 'Back' }: Props) {
         <span className="topbar-spacer" />
       )}
       {title && <h1 className="topbar-title">{title}</h1>}
+      <span className="topbar-right">
+      <span className="pill coin-pill" title="Coins you can spend in the Garage shop" aria-label={`${profile.coins} coins`}>
+        <span className="coin" aria-hidden="true" /> {profile.coins}
+      </span>
       <button
         className="btn btn-ghost btn-icon"
         onClick={toggleMute}
@@ -36,6 +40,7 @@ export function TopBar({ title, onBack, backLabel = 'Back' }: Props) {
       >
         {muted ? 'Sound: off' : 'Sound: on'}
       </button>
+      </span>
     </header>
   );
 }

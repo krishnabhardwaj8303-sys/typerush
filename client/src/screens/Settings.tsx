@@ -81,6 +81,24 @@ export function Settings({ go }: { go: Go }) {
       </section>
 
       <section className="panel">
+        <h2 className="section-title">Typing text size</h2>
+        <div className="segmented" role="radiogroup" aria-label="Typing text size">
+          {([['m', 'Normal'], ['l', 'Large'], ['xl', 'Extra large']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              role="radio"
+              aria-checked={s.textSize === value}
+              className={s.textSize === value ? 'seg seg-on' : 'seg'}
+              onClick={() => setSettings({ textSize: value })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="muted">Changes the size of the moving line you type from.</p>
+      </section>
+
+      <section className="panel">
         <h2 className="section-title">How points are scored</h2>
         <ul className="plain-list">
           {SCORING_EXPLANATION.map((line) => (
@@ -103,7 +121,7 @@ export function Settings({ go }: { go: Go }) {
           </button>
         ) : (
           <div className="row">
-            <span>This clears levels, points and records. Continue?</span>
+            <span>This clears levels, points, records and your history. Your coins, unlocked items, badges and streak are kept. Continue?</span>
             <button
               className="btn btn-danger"
               onClick={() => {

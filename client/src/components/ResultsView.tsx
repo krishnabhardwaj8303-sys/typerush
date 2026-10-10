@@ -1,6 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { DIFFICULTY_LABEL, formatTime, type ResultRow } from '@typerush/shared';
 import { audio } from '../lib/audio';
+import { useProfile } from '../lib/ProfileContext';
+import type { Reward } from '../lib/rewards';
+import { shareResult, type ShareOutcome } from '../lib/shareCard';
 import { CarArt } from './CarArt';
 import { Confetti } from './Confetti';
 
@@ -12,13 +15,17 @@ interface Props {
   /** Extra message, e.g. level cleared / not cleared. */
   banner?: { tone: 'good' | 'warn' | 'info'; text: string } | null;
   stars?: number | null;
+  /** Coins, badges and streak earned by this race. */
+  reward?: Reward | null;
   actions: React.ReactNode;
   reduceMotion: boolean;
 }
 
 const ORDINAL = ['1st', '2nd', '3rd'];
 
-export function ResultsView({ rows, youId, difficulty, title, banner, stars, actions, reduceMotion }: Props) {
+export function ResultsView({ rows, youId, difficulty, title, banner, stars, reward, actions, reduceMotion }: Props) {
+  const { profile } = useProfile();
+  const [shareNote, setShareNote] = useState<string | null>(null);
   const you = rows.find((r) => r.playerId === youId);
   const youWon = !!you && you.position === 1 && you.finished && rows.length > 1;
 
@@ -28,6 +35,34 @@ export function ResultsView({ rows, youId, difficulty, title, banner, stars, act
     else if (you.finished) audio.finish();
     else audio.lose();
   }, [you, youWon]);
+
+  const share = async () => {
+    if (!you) return;
+    setShareNote('Making your picture...');
+    const outcome: ShareOutcome = await shareResult({
+      name: profile.name,
+      car: profile.car,
+      skin: profile.skin,
+      title: title ?? `${DIFFICULTY_LABEL[difficulty]} race`,
+      difficulty,
+      wpm: you.wpm,
+      accuracy: you.accuracy,
+      position: you.position,
+      racers: rows.length,
+      points: you.score.total,
+      streak: reward?.streak.count ?? profile.streak.count,
+      site: typeof location !== 'undefined' ? location.origin : '',
+    });
+    setShareNote(
+      outcome === 'downloaded'
+        ? 'Picture saved! Post it on WhatsApp or Instagram.'
+        : outcome === 'shared'
+          ? 'Shared!'
+          : outcome === 'failed'
+            ? 'Sorry, the picture could not be made in this browser.'
+            : null,
+    );
+  };
 
   const podium = rows.slice(0, 3);
   // Visual order: 2nd, 1st, 3rd
@@ -52,11 +87,45 @@ export function ResultsView({ rows, youId, difficulty, title, banner, stars, act
         </p>
       )}
 
+      {reward && (reward.coins > 0 || reward.streak.count > 0) && (
+        <div className="reward-box" role="status">
+          <h3 className="reward-title">
+            <span className="coin" aria-hidden="true" /> +{reward.coins} coins
+          </h3>
+          {reward.parts.length > 0 && (
+            <ul className="reward-list">
+              {reward.parts.map((p) => (
+                <li key={p.label}>
+                  <span>{p.label}</span>
+                  <strong>+{p.coins}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+          {reward.streak.count > 0 && (
+            <p className="muted center">
+              {reward.streak.count} {reward.streak.count === 1 ? 'day' : 'days'} streak
+              {reward.streak.isNewDay ? ' - keep it going tomorrow!' : ''}
+            </p>
+          )}
+          {reward.badges.map((b) => (
+            <p key={b.id} className="badge-new">
+              <strong>New badge: {b.name}</strong> <span className="muted">{b.desc}</span>
+            </p>
+          ))}
+        </div>
+      )}
+
       {rows.length > 1 && (
         <div className={`podium ${reduceMotion ? '' : 'podium-animate'}`}>
           {podiumOrder.map((row) => (
             <div key={row.playerId} className={`podium-slot podium-${row.position}`}>
-              <CarArt car={row.car} size={110} animate={row.position === 1 && !reduceMotion} />
+              <CarArt
+                car={row.car}
+                skin={row.playerId === youId ? profile.skin : undefined}
+                size={110}
+                animate={row.position === 1 && !reduceMotion}
+              />
               <span className="podium-name">{row.name}</span>
               <div className="podium-block">
                 <span>{ORDINAL[row.position - 1]}</span>
@@ -124,6 +193,19 @@ export function ResultsView({ rows, youId, difficulty, title, banner, stars, act
             </li>
           </ul>
         </details>
+      )}
+
+      {you && (
+        <div className="share-row">
+          <button className="btn" onClick={share}>
+            Share my result
+          </button>
+          {shareNote && (
+            <span className="muted" role="status">
+              {shareNote}
+            </span>
+          )}
+        </div>
       )}
 
       <div className="results-actions">{actions}</div>

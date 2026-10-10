@@ -8,6 +8,7 @@ import {
   type Difficulty,
   type Rng,
 } from '@typerush/shared';
+import type { SkinId, TrailId } from '../lib/shop';
 
 export interface RenderCar {
   id: string;
@@ -23,6 +24,9 @@ export interface RenderCar {
   position?: number | null;
   dnf?: boolean;
   offline?: boolean;
+  /** Cosmetics, drawn on the player's own screen only. */
+  skin?: SkinId;
+  trail?: TrailId;
 }
 
 export interface RenderState {
@@ -60,6 +64,163 @@ function hash(n: number): number {
   return s - Math.floor(s);
 }
 
+
+// ---------------------------------------------------------------- skins and trails
+
+/** Paints a skin over a car body rectangle (the car's long side is horizontal in both views). */
+function paintSkin(c: CanvasRenderingContext2D, skin: SkinId | undefined, x: number, y: number, w: number, h: number, r: number) {
+  if (!skin || skin === 'plain') return;
+  c.save();
+  rr(c, x, y, w, h, r);
+  c.clip();
+  switch (skin) {
+    case 'stripes':
+      c.fillStyle = 'rgba(255,255,255,0.88)';
+      c.fillRect(x, y + h * 0.28, w, h * 0.12);
+      c.fillRect(x, y + h * 0.6, w, h * 0.12);
+      break;
+    case 'checker': {
+      const cell = h / 6;
+      const x0 = x + w * 0.5;
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 6; j++) {
+          c.fillStyle = (i + j) % 2 === 0 ? '#ffffff' : '#11141f';
+          c.fillRect(x0 + i * cell, y + j * cell, cell, cell);
+        }
+      }
+      break;
+    }
+    case 'flames':
+      for (const side of [0, 1]) {
+        const ey = side ? y + h : y;
+        const dir = side ? -1 : 1;
+        for (let k = 0; k < 5; k++) {
+          const bx = x + w * (0.97 - k * 0.17);
+          for (const [scale, color] of [[1, '#ff6a1a'], [0.55, '#ffd34d']] as const) {
+            c.fillStyle = color;
+            c.beginPath();
+            c.moveTo(bx, ey);
+            c.quadraticCurveTo(bx - w * 0.03, ey + dir * h * 0.2 * scale, bx - w * 0.14 * scale, ey + dir * h * 0.4 * scale);
+            c.quadraticCurveTo(bx - w * 0.1, ey + dir * h * 0.1 * scale, bx - w * 0.15, ey);
+            c.closePath();
+            c.fill();
+          }
+        }
+      }
+      break;
+    case 'stars':
+      c.fillStyle = 'rgba(255,255,255,0.92)';
+      for (let i = 0; i < 13; i++) {
+        const px = x + w * (((i * 0.618) % 1) * 0.92 + 0.04);
+        const py = y + h * (((i * 0.37 + 0.2) % 1) * 0.8 + 0.1);
+        const sr = h * (0.05 + (i % 3) * 0.025);
+        c.beginPath();
+        c.moveTo(px, py - sr * 1.6);
+        c.lineTo(px + sr * 0.4, py - sr * 0.4);
+        c.lineTo(px + sr * 1.6, py);
+        c.lineTo(px + sr * 0.4, py + sr * 0.4);
+        c.lineTo(px, py + sr * 1.6);
+        c.lineTo(px - sr * 0.4, py + sr * 0.4);
+        c.lineTo(px - sr * 1.6, py);
+        c.lineTo(px - sr * 0.4, py - sr * 0.4);
+        c.closePath();
+        c.fill();
+      }
+      break;
+    case 'carbon': {
+      c.fillStyle = 'rgba(16,20,32,0.9)';
+      c.fillRect(x, y, w, h);
+      c.strokeStyle = 'rgba(255,255,255,0.14)';
+      c.lineWidth = Math.max(1, h * 0.06);
+      const step = Math.max(4, h * 0.22);
+      for (let k = -h; k < w + h; k += step) {
+        c.beginPath();
+        c.moveTo(x + k, y + h);
+        c.lineTo(x + k + h, y);
+        c.stroke();
+      }
+      break;
+    }
+    case 'gold': {
+      const g = c.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, '#fff3b0');
+      g.addColorStop(0.35, '#f5c518');
+      g.addColorStop(0.7, '#b8860b');
+      g.addColorStop(1, '#f5c518');
+      c.globalAlpha = 0.95;
+      c.fillStyle = g;
+      c.fillRect(x, y, w, h);
+      break;
+    }
+  }
+  c.restore();
+}
+
+/**
+ * Draws a trail behind a car. `pts[0]` is the point nearest to the car and later points are
+ * further behind it. `size` is roughly the car's width in px.
+ */
+export function drawTrail(c: CanvasRenderingContext2D, trail: TrailId, pts: { x: number; y: number }[], size: number, time: number) {
+  if (trail === 'none' || pts.length < 2) return;
+  const n = pts.length;
+  c.save();
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  if (trail === 'neon' || trail === 'rainbow') {
+    for (let i = 0; i < n - 1; i++) {
+      const t = i / (n - 1);
+      c.beginPath();
+      c.moveTo(pts[i].x, pts[i].y);
+      c.lineTo(pts[i + 1].x, pts[i + 1].y);
+      if (trail === 'rainbow') {
+        c.strokeStyle = `hsla(${(i * 22 + time * 140) % 360}, 95%, 60%, ${0.9 * (1 - t)})`;
+        c.lineWidth = size * 0.3 * (1 - t * 0.55);
+        c.stroke();
+      } else {
+        c.strokeStyle = `rgba(255,79,216,${0.4 * (1 - t)})`;
+        c.lineWidth = size * 0.32 * (1 - t * 0.5);
+        c.stroke();
+        c.strokeStyle = `rgba(34,211,238,${0.95 * (1 - t)})`;
+        c.lineWidth = size * 0.12 * (1 - t * 0.5);
+        c.stroke();
+      }
+    }
+  } else {
+    const beat = Math.floor(time * 14);
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const p = pts[i];
+      const jx = (hash(i * 3.1 + beat * 0.7) - 0.5) * size * 0.5;
+      const jy = (hash(i * 5.7 + beat * 1.3) - 0.5) * size * 0.5;
+      if (trail === 'smoke') {
+        c.fillStyle = `rgba(214,218,232,${0.4 * (1 - t)})`;
+        c.beginPath();
+        c.arc(p.x + jx * 0.4, p.y + jy * 0.4, size * (0.14 + 0.3 * t), 0, Math.PI * 2);
+        c.fill();
+      } else if (trail === 'fire') {
+        c.fillStyle = `rgba(255,${Math.round(90 + 150 * (1 - t))},40,${0.62 * (1 - t)})`;
+        c.beginPath();
+        c.arc(p.x + jx * 0.3, p.y + jy * 0.3, size * (0.06 + 0.26 * (1 - t)), 0, Math.PI * 2);
+        c.fill();
+      } else if (trail === 'sparks') {
+        if (hash(i + beat * 2.3) > 0.4) {
+          c.fillStyle = hash(i * 9 + beat) > 0.5 ? `rgba(255,211,77,${1 - t})` : `rgba(255,157,60,${1 - t})`;
+          c.beginPath();
+          c.arc(p.x + jx, p.y + jy, Math.max(1.2, size * 0.07), 0, Math.PI * 2);
+          c.fill();
+        }
+      } else if (trail === 'bubbles') {
+        c.strokeStyle = `rgba(170,225,255,${0.9 * (1 - t)})`;
+        c.lineWidth = 1.4;
+        c.beginPath();
+        c.arc(p.x + jx * 0.6, p.y + jy * 0.6 + Math.sin(time * 3 + i) * size * 0.2, size * (0.07 + 0.1 * hash(i + 11)), 0, Math.PI * 2);
+        c.stroke();
+      }
+    }
+  }
+  c.restore();
+}
+
 /** Draws a car centred on (cx, cy) facing right. `w` is the car length in px. */
 export function drawCar(
   ctx: CanvasRenderingContext2D,
@@ -67,7 +228,7 @@ export function drawCar(
   cy: number,
   w: number,
   def: CarDef,
-  opts: { wheelAngle?: number; flame?: number; time?: number; shadow?: boolean } = {},
+  opts: { wheelAngle?: number; flame?: number; time?: number; shadow?: boolean; skin?: SkinId } = {},
 ) {
   const { wheelAngle = 0, flame = 0, time = 0, shadow = true } = opts;
   const h = w * 0.38;
@@ -106,6 +267,7 @@ export function drawCar(
   ctx.fillStyle = def.body;
   rr(ctx, left, bodyY, w, bodyH, h * 0.2);
   ctx.fill();
+  paintSkin(ctx, opts.skin, left, bodyY, w, bodyH, h * 0.2);
 
   // Cabin
   ctx.beginPath();
@@ -785,6 +947,7 @@ function drawCarTop(
   def: CarDef,
   flame: number,
   time: number,
+  skin?: SkinId,
 ) {
   const wd = len * 0.5;
   c.save();
@@ -836,6 +999,7 @@ function drawCarTop(
   c.fillStyle = def.body;
   rr(c, -len / 2, -wd / 2, len, wd, wd * 0.36);
   c.fill();
+  paintSkin(c, skin, -len / 2, -wd / 2, len, wd, wd * 0.36);
   c.fillStyle = def.accent;
   c.fillRect(-len * 0.45, -wd * 0.07, len * 0.9, wd * 0.14);
 
@@ -848,6 +1012,7 @@ function drawCarTop(
   c.fillStyle = def.body;
   rr(c, len * (cabinX + 0.07), -wd * 0.3, len * (cabinL - 0.14), wd * 0.6, wd * 0.12);
   c.fill();
+  paintSkin(c, skin, len * (cabinX + 0.07), -wd * 0.3, len * (cabinL - 0.14), wd * 0.6, wd * 0.12);
 
   // lights
   c.fillStyle = '#fff7c2';
@@ -883,6 +1048,15 @@ export function drawRace(ctx: CanvasRenderingContext2D, w: number, h: number, st
 
     ctx.save();
     if (car.offline) ctx.globalAlpha = 0.45;
+    if (car.trail && car.trail !== 'none' && car.speed > 0.1) {
+      const dist = distanceForProgress(g, car.progress);
+      const step = len * 0.26;
+      if (dist > step) {
+        const pts = [];
+        for (let k = 1; k <= 16; k++) pts.push(carPose(g, Math.max(0, dist - k * step), index));
+        drawTrail(ctx, car.trail, pts, len * 0.5, state.reduceMotion ? 0 : state.time);
+      }
+    }
     if (!state.reduceMotion && car.speed > 0.25) {
       ctx.save();
       ctx.translate(pose.x, pose.y);
@@ -901,7 +1075,7 @@ export function drawRace(ctx: CanvasRenderingContext2D, w: number, h: number, st
       }
       ctx.restore();
     }
-    drawCarTop(ctx, pose.x, pose.y, pose.angle, len, def, state.reduceMotion ? 0 : Math.max(0, (car.speed - 0.6) / 0.4), state.time);
+    drawCarTop(ctx, pose.x, pose.y, pose.angle, len, def, state.reduceMotion ? 0 : Math.max(0, (car.speed - 0.6) / 0.4), state.time, car.skin);
     ctx.restore();
 
     const label = car.finished && car.position ? `${car.position}. ${car.name}` : car.dnf ? `${car.name} (out)` : car.name;

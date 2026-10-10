@@ -15,6 +15,7 @@ import { ResultsView } from '../components/ResultsView';
 import type { HudStats, StandingRow } from '../components/Hud';
 import { audio } from '../lib/audio';
 import { useProfile } from '../lib/ProfileContext';
+import type { Reward } from '../lib/rewards';
 import { TypingSession } from '../lib/typingSession';
 import { useTypingInput } from '../lib/useTypingInput';
 import {
@@ -26,7 +27,7 @@ import {
 } from '../render/raceRenderer';
 
 export interface SoloConfig {
-  mode: 'level' | 'quick';
+  mode: 'level' | 'quick' | 'daily';
   levelId?: number;
   difficulty: Difficulty;
   tier: number;
@@ -159,6 +160,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
   const [hud, setHud] = useState<HudStats>({ wpm: 0, accuracy: 100, elapsedMs: 0, progressPct: 0 });
   const [standings, setStandings] = useState<StandingRow[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [reward, setReward] = useState<Reward | null>(null);
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -199,7 +201,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
 
     if (!savedRef.current) {
       savedRef.current = true;
-      addRace({
+      const earned = addRace({
         mode: config.mode,
         difficulty: config.difficulty,
         levelId: config.levelId,
@@ -211,6 +213,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
         finished: true,
         stars: result.stars,
       });
+      setReward(earned);
     }
   }, [addRace, config, profile.car, profile.name, setPhase, text.length]);
 
@@ -268,10 +271,14 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
       };
       const ranks = outcome?.rows ?? [];
       const posOf = (id: string) => ranks.find((r) => r.playerId === id)?.position;
-      const cars = aisRef.current.map((ai) =>
+      const cars: RenderCar[] = aisRef.current.map((ai) =>
         make(ai.profile.id, ai.profile.name, ai.profile.car, ai.progress, false, posOf(ai.profile.id)),
       );
-      cars.push(make(YOU, profile.name, profile.car, session.progress(), true, posOf(YOU)));
+      cars.push({
+        ...make(YOU, profile.name, profile.car, session.progress(), true, posOf(YOU)),
+        skin: profile.skin,
+        trail: profile.trail,
+      });
       void finished;
       return cars;
     };
@@ -358,7 +365,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [outcome, profile.car, profile.name, reduceMotion, setPhase, text.length]);
+  }, [outcome, profile.car, profile.name, profile.skin, profile.trail, reduceMotion, setPhase, text.length]);
 
   // Pause with Escape or when the tab is hidden; always silence the engine on exit.
   useEffect(() => {
@@ -391,7 +398,14 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
               tone: 'warn' as const,
               text: `Not cleared yet: this level needs ${config.minAccuracy}% accuracy and you had ${you.accuracy.toFixed(1)}%. Slow down a little and try again.`,
             }
-        : null;
+        : config.mode === 'daily'
+          ? {
+              tone: 'info' as const,
+              text: `Daily Challenge: everyone gets this same text today. Your best today: ${Math.round(
+                Math.max(profile.daily?.best.wpm ?? 0, you.wpm),
+              )} WPM. Come back tomorrow for a new one!`,
+            }
+          : null;
     return (
       <ResultsView
         rows={rows}
@@ -399,11 +413,13 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
         difficulty={config.difficulty}
         banner={banner}
         stars={config.mode === 'level' ? stars : null}
+        reward={reward}
+        title={config.mode === 'daily' ? 'Daily Challenge complete' : undefined}
         reduceMotion={reduceMotion}
         actions={
           <>
             <button className="btn btn-primary" onClick={onRetry} autoFocus>
-              {cleared || config.mode === 'quick' ? 'Race again' : 'Retry level'}
+              {cleared || config.mode !== 'level' ? 'Race again' : 'Retry level'}
             </button>
             {cleared && onNext && (
               <button className="btn btn-accent" onClick={onNext}>

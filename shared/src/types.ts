@@ -17,7 +17,19 @@ export const DIFFICULTY_BLURB: Record<Difficulty, string> = {
   expert: 'Numbers, symbols and complex sentences.',
 };
 
-export type CarId = 'rocket' | 'bolt' | 'wave' | 'mint' | 'viper' | 'flare';
+export type CarId =
+  | 'rocket'
+  | 'bolt'
+  | 'wave'
+  | 'mint'
+  | 'viper'
+  | 'flare'
+  | 'comet'
+  | 'phantom'
+  | 'titan'
+  | 'blaze'
+  | 'aurora'
+  | 'shadow';
 export type CarShape = 'sedan' | 'coupe' | 'hatch';
 
 export interface CarDef {
@@ -26,15 +38,23 @@ export interface CarDef {
   body: string;
   accent: string;
   shape: CarShape;
+  /** Coins needed to unlock it in the garage shop (0 = free from the start). */
+  price: number;
 }
 
 export const CARS: CarDef[] = [
-  { id: 'rocket', name: 'Rocket', body: '#e5384f', accent: '#ffd166', shape: 'coupe' },
-  { id: 'bolt', name: 'Bolt', body: '#f5c518', accent: '#1d2433', shape: 'hatch' },
-  { id: 'wave', name: 'Wave', body: '#2f7bff', accent: '#bfe3ff', shape: 'sedan' },
-  { id: 'mint', name: 'Mint', body: '#1fbf8f', accent: '#0b3d33', shape: 'hatch' },
-  { id: 'viper', name: 'Viper', body: '#8a4dff', accent: '#e3d4ff', shape: 'coupe' },
-  { id: 'flare', name: 'Flare', body: '#ff7a1a', accent: '#fff1d6', shape: 'sedan' },
+  { id: 'rocket', name: 'Rocket', body: '#e5384f', accent: '#ffd166', shape: 'coupe', price: 0 },
+  { id: 'bolt', name: 'Bolt', body: '#f5c518', accent: '#1d2433', shape: 'hatch', price: 0 },
+  { id: 'wave', name: 'Wave', body: '#2f7bff', accent: '#bfe3ff', shape: 'sedan', price: 0 },
+  { id: 'mint', name: 'Mint', body: '#1fbf8f', accent: '#0b3d33', shape: 'hatch', price: 0 },
+  { id: 'viper', name: 'Viper', body: '#8a4dff', accent: '#e3d4ff', shape: 'coupe', price: 0 },
+  { id: 'flare', name: 'Flare', body: '#ff7a1a', accent: '#fff1d6', shape: 'sedan', price: 0 },
+  { id: 'comet', name: 'Comet', body: '#22d3ee', accent: '#ffffff', shape: 'coupe', price: 200 },
+  { id: 'phantom', name: 'Phantom', body: '#2b2f45', accent: '#ff4fd8', shape: 'sedan', price: 300 },
+  { id: 'titan', name: 'Titan', body: '#aeb7c9', accent: '#f5c518', shape: 'hatch', price: 350 },
+  { id: 'blaze', name: 'Blaze', body: '#ff3d00', accent: '#1d2433', shape: 'coupe', price: 400 },
+  { id: 'aurora', name: 'Aurora', body: '#14d9c4', accent: '#b388ff', shape: 'sedan', price: 500 },
+  { id: 'shadow', name: 'Shadow', body: '#161a2b', accent: '#22d3ee', shape: 'coupe', price: 650 },
 ];
 
 export const CAR_IDS: CarId[] = CARS.map((c) => c.id);

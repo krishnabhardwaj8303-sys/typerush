@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DIFFICULTIES, DIFFICULTY_LABEL, type Difficulty } from '@typerush/shared';
 import { TopBar } from '../components/TopBar';
 import { useProfile } from '../lib/ProfileContext';
+import { BADGES } from '../lib/rewards';
 import { serverUrl } from '../net/OnlineContext';
 import type { Go } from '../routes';
 
@@ -164,7 +165,7 @@ function MyRecords() {
                 <tr key={h.at}>
                   <td>{new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
                   <td>
-                    {h.mode === 'level' ? `Level ${h.levelId}` : h.mode === 'quick' ? 'Practice' : h.mode === 'friends' ? 'Friends' : 'Online'}{' '}
+                    {h.mode === 'level' ? `Level ${h.levelId}` : h.mode === 'quick' ? 'Practice' : h.mode === 'daily' ? 'Daily' : h.mode === 'friends' ? 'Friends' : 'Online'}{' '}
                     <small className="muted">({DIFFICULTY_LABEL[h.difficulty]})</small>
                   </td>
                   <td>
@@ -183,8 +184,32 @@ function MyRecords() {
   );
 }
 
+function BadgeWall() {
+  const { profile } = useProfile();
+  const got = BADGES.filter((b) => profile.badges[b.id]).length;
+  return (
+    <>
+      <p className="muted center">
+        {got} of {BADGES.length} badges earned. Each new badge also gives you bonus coins.
+      </p>
+      <ul className="badge-grid">
+        {BADGES.map((b) => {
+          const earned = !!profile.badges[b.id];
+          return (
+            <li key={b.id} className={earned ? 'badge-card badge-on' : 'badge-card'}>
+              <strong>{b.name}</strong>
+              <span className="muted">{b.desc}</span>
+              <small>{earned ? 'Earned' : `Reward: ${b.coins} coins`}</small>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
 export function Leaderboard({ go }: { go: Go }) {
-  const [tab, setTab] = useState<'mine' | 'online'>('mine');
+  const [tab, setTab] = useState<'mine' | 'online' | 'badges'>('mine');
   return (
     <div className="page">
       <TopBar title="Leaderboard" onBack={() => go({ name: 'home' })} backLabel="Menu" />
@@ -195,9 +220,12 @@ export function Leaderboard({ go }: { go: Go }) {
         <button role="tab" aria-selected={tab === 'online'} className={tab === 'online' ? 'tab tab-on' : 'tab'} onClick={() => setTab('online')}>
           Online hall of fame
         </button>
+        <button role="tab" aria-selected={tab === 'badges'} className={tab === 'badges' ? 'tab tab-on' : 'tab'} onClick={() => setTab('badges')}>
+          Badges
+        </button>
       </div>
       <section className="panel" role="tabpanel">
-        {tab === 'mine' ? <MyRecords /> : <OnlineBoard />}
+        {tab === 'mine' ? <MyRecords /> : tab === 'online' ? <OnlineBoard /> : <BadgeWall />}
       </section>
     </div>
   );

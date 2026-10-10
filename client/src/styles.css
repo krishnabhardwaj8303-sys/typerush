@@ -288,3 +288,37 @@ input[type="range"] { accent-color: var(--pink); width: 100%; }
   mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 93%, transparent 100%); }
 .ticker-track { display: inline-block; margin-left: 30%; transition: transform 90ms linear; will-change: transform; }
 @media (prefers-reduced-motion: reduce) { .ticker-track { transition: none; } }
+
+/* ---------- Coins, shop, rewards, daily challenge, badges ---------- */
+.topbar-right { display: inline-flex; align-items: center; gap: 8px; }
+.coin { display: inline-block; width: 0.95em; height: 0.95em; border-radius: 50%; vertical-align: -0.1em; background: radial-gradient(circle at 35% 30%, #fff6b0, #ffc233 55%, #c98a00); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset; }
+.coin-pill { display: inline-flex; align-items: center; gap: 6px; }
+.gold { color: var(--gold); }
+.shop-preview { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.car-card-locked { opacity: 0.88; border-style: dashed; }
+.shop-state { font-size: 0.82rem; font-weight: 700; color: var(--muted); }
+.shop-on { color: var(--green); }
+.shop-buy { color: var(--gold); }
+.shop-locked { color: #8b97c9; }
+.reward-box { background: linear-gradient(180deg, rgba(255, 194, 51, 0.14), rgba(255, 194, 51, 0.04)); border: 2px solid var(--gold); border-radius: var(--radius); padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.reward-title { margin: 0; font-size: 1.5rem; }
+.reward-list { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 360px; display: grid; gap: 2px; }
+.reward-list li { display: flex; justify-content: space-between; gap: 12px; }
+.badge-new { margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(52, 211, 153, 0.16); border: 1px solid var(--green); text-align: center; }
+.share-row { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.daily-card { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 16px 20px; border-radius: var(--radius); border: 2px solid var(--gold); background: linear-gradient(90deg, rgba(255, 194, 51, 0.18), rgba(255, 62, 165, 0.14)); cursor: pointer; transition: transform 0.12s; }
+.daily-card:hover { transform: translateY(-3px); }
+.daily-done { border-color: var(--green); background: linear-gradient(90deg, rgba(52, 211, 153, 0.16), rgba(34, 211, 238, 0.1)); }
+.daily-tag { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+.daily-card strong { font-size: 1.1rem; }
+.badge-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.badge-card { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; border: 2px dashed var(--line); background: var(--bg); opacity: 0.7; }
+.badge-on { opacity: 1; border-style: solid; border-color: var(--gold); background: rgba(255, 194, 51, 0.1); }
+html[data-text-size="l"] .typing-text { font-size: clamp(1.5rem, 4.6vw, 2.2rem); }
+html[data-text-size="xl"] .typing-text { font-size: clamp(1.9rem, 5.6vw, 2.8rem); }
+@media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; gap: 6px; }
+  .daily-card { padding: 12px 14px; }
+  .reward-title { font-size: 1.25rem; }
+}
+
