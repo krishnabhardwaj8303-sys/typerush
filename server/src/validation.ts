@@ -3,6 +3,10 @@ import {
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   isCarId,
+  isSkinId,
+  isTrailId,
+  type SkinId,
+  type TrailId,
   isDifficulty,
   type CarId,
   type Difficulty,
@@ -63,6 +67,15 @@ export function sanitizeCar(raw: unknown): CarId {
   return raw;
 }
 
+/** Cosmetics are optional and never a reason to reject a join: unknown values fall back to the plain look. */
+export function sanitizeSkin(raw: unknown): SkinId {
+  return isSkinId(raw) ? raw : 'plain';
+}
+
+export function sanitizeTrail(raw: unknown): TrailId {
+  return isTrailId(raw) ? raw : 'none';
+}
+
 export function sanitizeDifficulty(raw: unknown): Difficulty {
   if (!isDifficulty(raw)) throw new ValidationError('Unknown difficulty.');
   return raw;
@@ -71,6 +84,8 @@ export function sanitizeDifficulty(raw: unknown): Difficulty {
 export interface ProfilePayload {
   name: string;
   car: CarId;
+  skin: SkinId;
+  trail: TrailId;
   token: string;
 }
 
@@ -79,6 +94,8 @@ export function parseCreate(raw: unknown): ProfilePayload & { difficulty: Diffic
   return {
     name: sanitizeName(raw.name),
     car: sanitizeCar(raw.car),
+    skin: sanitizeSkin(raw.skin),
+    trail: sanitizeTrail(raw.trail),
     token: sanitizeToken(raw.token),
     difficulty: sanitizeDifficulty(raw.difficulty),
   };
@@ -90,6 +107,8 @@ export function parseJoin(raw: unknown): ProfilePayload & { code: string } {
     code: sanitizeCode(raw.code),
     name: sanitizeName(raw.name),
     car: sanitizeCar(raw.car),
+    skin: sanitizeSkin(raw.skin),
+    trail: sanitizeTrail(raw.trail),
     token: sanitizeToken(raw.token),
   };
 }

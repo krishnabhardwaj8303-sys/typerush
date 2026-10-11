@@ -1,4 +1,4 @@
-import { quickRaceChars, quickRaceOpponents, levelsFor, type Difficulty, type LevelDef } from '@typerush/shared';
+import { TEXT_LANG_LABEL, quickRaceChars, quickRaceOpponents, levelsFor, type Difficulty, type LevelDef, type TextLang } from '@typerush/shared';
 import { dailyInfo, dailyOpponents, dayKey } from '../lib/rewards';
 import type { AssignmentSpec, SubmitTarget } from '../lib/cloud';
 import type { SoloConfig } from './SoloRace';
@@ -17,7 +17,7 @@ export function levelToConfig(level: LevelDef, seed: number): SoloConfig {
   };
 }
 
-export function quickConfig(difficulty: Difficulty, opponentCount: number, seed: number): SoloConfig {
+export function quickConfig(difficulty: Difficulty, opponentCount: number, seed: number, lang: TextLang = 'en'): SoloConfig {
   return {
     mode: 'quick',
     difficulty,
@@ -26,7 +26,8 @@ export function quickConfig(difficulty: Difficulty, opponentCount: number, seed:
     minAccuracy: null,
     opponents: quickRaceOpponents(difficulty, opponentCount),
     seed,
-    title: `Practice: ${difficulty[0].toUpperCase()}${difficulty.slice(1)}`,
+    title: `Practice: ${difficulty[0].toUpperCase()}${difficulty.slice(1)}${lang === 'en' ? '' : ` (${TEXT_LANG_LABEL[lang]})`}`,
+    ...(lang === 'en' ? {} : { lang }),
   };
 }
 
@@ -67,5 +68,6 @@ export function assignmentConfig(spec: AssignmentSpec, title: string, submit: Su
     seed: spec.seed,
     title,
     submit,
+    ...(spec.lang && spec.lang !== 'en' ? { lang: spec.lang } : {}),
   };
 }

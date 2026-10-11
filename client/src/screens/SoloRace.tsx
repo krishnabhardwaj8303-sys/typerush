@@ -9,6 +9,7 @@ import {
   type AiProfile,
   type Difficulty,
   type ResultRow,
+  type TextLang,
 } from '@typerush/shared';
 import { RaceStage } from '../components/RaceStage';
 import { ResultsView } from '../components/ResultsView';
@@ -38,6 +39,8 @@ export interface SoloConfig {
   opponents: AiProfile[];
   seed: number;
   title: string;
+  /** Text language (English when missing). */
+  lang?: TextLang;
   /** Daily Challenge only: the calendar day (YYYY-MM-DD) of the challenge. */
   day?: string;
   /** Weekly Cup / classroom races: where to send the result (the server checks it). */
@@ -136,8 +139,8 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
   const reduceMotion = profile.settings.reduceMotion;
 
   const text = useMemo(
-    () => generateText(config.difficulty, config.chars, config.seed, config.tier),
-    [config.difficulty, config.chars, config.seed, config.tier],
+    () => generateText(config.difficulty, config.chars, config.seed, config.tier, config.lang ?? 'en'),
+    [config.difficulty, config.chars, config.seed, config.tier, config.lang],
   );
 
   const sessionRef = useRef<TypingSession>(new TypingSession(text));
@@ -310,7 +313,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
       const ranks = outcome?.rows ?? [];
       const posOf = (id: string) => ranks.find((r) => r.playerId === id)?.position;
       const cars: RenderCar[] = aisRef.current.map((ai) =>
-        make(ai.profile.id, ai.profile.name, ai.profile.car, ai.progress, false, posOf(ai.profile.id)),
+        make(ai.profile.id, `${ai.profile.name} (AI)`, ai.profile.car, ai.progress, false, posOf(ai.profile.id)),
       );
       cars.push({
         ...make(YOU, profile.name, profile.car, session.progress(), true, posOf(YOU)),
@@ -390,7 +393,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
           },
           ...aisRef.current.map((ai) => ({
             id: ai.profile.id,
-            name: ai.profile.name,
+            name: `${ai.profile.name} (AI)`,
             progressPct: ai.progress * 100,
             you: false,
             finished: ai.finished,

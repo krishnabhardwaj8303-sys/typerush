@@ -1,5 +1,5 @@
 import { Pool, type PoolConfig } from 'pg';
-import type { Difficulty } from '@typerush/shared';
+import { isTextLang, type Difficulty, type TextLang } from '@typerush/shared';
 
 // Storage for accounts, cloud saves and leaderboard scores.
 //  - PgStore keeps everything in a PostgreSQL database (Supabase, Neon... any free Postgres works).
@@ -50,6 +50,8 @@ export interface ClassRecord {
   ownerId: string;
   name: string;
   difficulty: Difficulty;
+  /** Language of the class texts (English unless the teacher picked another). */
+  lang: TextLang;
   round: number;
   createdAt: number;
 }
@@ -58,6 +60,8 @@ export interface Store {
   readonly kind: 'memory' | 'postgres';
   init(): Promise<void>;
   close(): Promise<void>;
+  /** Cheap round trip to the database (keeps a free hosted database awake). True when it answered. */
+  ping(): Promise<boolean>;
 
   createAccount(input: { id: string; name: string; tokenHash: string; recoveryHash: string; at: number }): Promise<void>;
   /** Adds another device (token) to an account. */
@@ -107,6 +111,9 @@ export class MemoryStore implements Store {
 
   async init(): Promise<void> {}
   async close(): Promise<void> {}
+  async ping(): Promise<boolean> {
+    return true;
+  }
 
   async createAccount(input: { id: string; name: string; tokenHash: string; recoveryHash: string; at: number }) {
     this.accounts.set(input.id, {
@@ -317,6 +324,7 @@ const SCHEMA = [
     account_id TEXT NOT NULL,
     PRIMARY KEY (class_id, account_id)
   )`,
+  "ALTER TABLE classes ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT 'en'",
   'CREATE INDEX IF NOT EXISTS scores_mode_day_idx ON scores (mode, day, score)',
   'CREATE INDEX IF NOT EXISTS scores_created_idx ON scores (created_at)',
 ];
@@ -342,6 +350,15 @@ export class PgStore implements Store {
 
   async close(): Promise<void> {
     await this.pool.end();
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      await this.pool.query('SELECT 1');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async createAccount(input: { id: string; name: string; tokenHash: string; recoveryHash: string; at: number }) {
@@ -438,6 +455,7 @@ export class PgStore implements Store {
       ownerId: String(r.owner_id),
       name: String(r.name),
       difficulty: String(r.difficulty) as Difficulty,
+      lang: isTextLang(r.lang) ? r.lang : 'en',
       round: Number(r.round),
       createdAt: Number(r.created_at),
     };
@@ -445,8 +463,8 @@ export class PgStore implements Store {
 
   async createClass(c: ClassRecord) {
     await this.pool.query(
-      'INSERT INTO classes (id, code, owner_id, name, difficulty, round, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [c.id, c.code, c.ownerId, c.name, c.difficulty, c.round, c.createdAt],
+      'INSERT INTO classes (id, code, owner_id, name, difficulty, lang, round, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [c.id, c.code, c.ownerId, c.name, c.difficulty, c.lang, c.round, c.createdAt],
     );
   }
 

@@ -139,6 +139,28 @@ describe.each([
     expect((await call('GET', '/api/cup', undefined, a)).body.entries).toHaveLength(2); // still one row per player
   });
 
+  it('checks Hindi and Hinglish class runs against the text of that language', async () => {
+    const { call, signUp } = await boot(await makeStore());
+    const teacher = await signUp('Teacher');
+    const kid = await signUp('Kid');
+    const hindi = await call('POST', '/api/class/create', { name: 'Hindi', difficulty: 'medium', lang: 'hindi' }, teacher);
+    const odd = await call('POST', '/api/class/create', { name: 'Odd', difficulty: 'medium', lang: 'klingon' }, teacher);
+    expect(hindi.body.class.lang).toBe('hindi');
+    expect(odd.body.class.lang).toBe('en'); // unknown values fall back to English
+    await call('POST', '/api/class/join', { code: hindi.body.class.code }, kid);
+    const id = hindi.body.class.id;
+    const detail = (await call('GET', `/api/class/${id}`, undefined, kid)).body;
+    expect(detail.assignment.lang).toBe('hindi');
+    const info = classInfo(id, 1, 'medium');
+    const hindiLen = generateText(info.difficulty, info.chars, info.seed, info.tier, 'hindi').length;
+    const englishLen = generateText(info.difficulty, info.chars, info.seed, info.tier).length;
+    expect(hindiLen).not.toBe(englishLen);
+    expect((await call('POST', '/api/class/submit', { id, times: run(englishLen, 4) }, kid)).status).toBe(422);
+    const ok = await call('POST', '/api/class/submit', { id, times: run(hindiLen, 4) }, kid);
+    expect(ok.status).toBe(200);
+    expect((await call('GET', '/api/classes', undefined, kid)).body.classes[0].lang).toBe('hindi');
+  });
+
   it('lets a teacher run a class: join, submit, new round, delete', async () => {
     const { call, signUp } = await boot(await makeStore());
     const teacher = await signUp('Teacher');

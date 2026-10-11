@@ -1,7 +1,7 @@
 // Talking to the server's account, cloud-save and leaderboard endpoints.
 
 import { serverUrl } from '../net/OnlineContext';
-import type { Difficulty } from '@typerush/shared';
+import type { Difficulty, TextLang } from '@typerush/shared';
 import { parseProfile, type Profile } from './storage';
 
 export interface ApiOk<T> {
@@ -194,6 +194,7 @@ export const removeFriend = (token: string, code: string) => request<Record<stri
 /** What the server hands out for the Weekly Cup and for a class: everything needed to build the race. */
 export interface AssignmentSpec {
   difficulty: Difficulty;
+  lang?: TextLang;
   chars: number;
   seed: number;
   tier: number;
@@ -215,6 +216,7 @@ export interface ClassSummary {
   code: string;
   name: string;
   difficulty: Difficulty;
+  lang?: TextLang;
   round: number;
   owner: boolean;
 }
@@ -227,8 +229,8 @@ export interface ClassDetail {
 }
 export const fetchClasses = (token: string) => request<{ classes: ClassSummary[] }>('GET', '/api/classes', token);
 export const fetchClass = (token: string, id: string) => request<ClassDetail>('GET', `/api/class/${encodeURIComponent(id)}`, token);
-export const createClass = (token: string, name: string, difficulty: Difficulty) =>
-  request<{ class: ClassSummary }>('POST', '/api/class/create', token, { name, difficulty });
+export const createClass = (token: string, name: string, difficulty: Difficulty, lang: TextLang = 'en') =>
+  request<{ class: ClassSummary }>('POST', '/api/class/create', token, { name, difficulty, lang });
 export const joinClass = (token: string, code: string) => request<{ class: ClassSummary }>('POST', '/api/class/join', token, { code });
 export const leaveClass = (token: string, id: string) => request<Record<string, never>>('POST', '/api/class/leave', token, { id });
 export const newClassRound = (token: string, id: string) => request<{ round: number }>('POST', '/api/class/round', token, { id });

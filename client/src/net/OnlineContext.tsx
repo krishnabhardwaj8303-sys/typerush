@@ -11,6 +11,8 @@ import {
 import { io, type Socket } from 'socket.io-client';
 import type {
   CarId,
+  SkinId,
+  TrailId,
   ClientToServerEvents,
   Difficulty,
   JoinedInfo,
@@ -52,6 +54,8 @@ function writeSession(code: string | null) {
 interface Identity {
   name: string;
   car: CarId;
+  skin?: SkinId;
+  trail?: TrailId;
   token: string;
 }
 

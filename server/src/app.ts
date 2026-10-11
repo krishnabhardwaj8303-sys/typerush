@@ -90,8 +90,15 @@ export function createTypeRushServer(config: ServerConfig, deps: { store?: Store
   app.get('/', (_req, res) => {
     res.type('text/plain').send('TypeRush multiplayer server is running. Open the game in your browser to play.');
   });
-  app.get('/health', (_req, res) => {
-    res.json({ ok: true, name: 'typerush-server', uptimeSec: Math.round((Date.now() - startedAt) / 1000), storage: store.kind, ...manager.stats() });
+  // Pinging /health every few minutes (UptimeRobot) keeps the free server awake, and the SELECT 1 inside keeps
+  // a free hosted database from being paused for inactivity. A slow or broken database never makes /health fail.
+  app.get('/health', async (_req, res) => {
+    let db: 'ok' | 'error' | 'none' = 'none';
+    if (store.kind === 'postgres') {
+      const answered = await Promise.race([store.ping(), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3000))]);
+      db = answered ? 'ok' : 'error';
+    }
+    res.json({ ok: true, name: 'typerush-server', uptimeSec: Math.round((Date.now() - startedAt) / 1000), storage: store.kind, db, ...manager.stats() });
   });
   app.get('/api/leaderboard', (_req, res) => {
     res.json({ entries: leaderboard.top(25), note: 'Unverified results from public matches. Resets when the server restarts on free hosting.' });

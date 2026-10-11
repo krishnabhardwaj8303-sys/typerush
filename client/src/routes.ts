@@ -12,6 +12,7 @@ export type Route =
   | { name: 'leaderboard' }
   | { name: 'settings' }
   | { name: 'account' }
+  | { name: 'legal'; tab?: 'privacy' | 'terms' }
   | { name: 'community'; tab?: 'friends' | 'cup' | 'class' };
 
 export type Go = (route: Route) => void;

@@ -12,6 +12,8 @@ import {
   generateText,
   randomSeed,
   type CarId,
+  type SkinId,
+  type TrailId,
   type ClientToServerEvents,
   type Difficulty,
   type JoinedInfo,
@@ -38,6 +40,8 @@ interface Player {
   socketId: string | null;
   name: string;
   car: CarId;
+  skin: SkinId;
+  trail: TrailId;
   ready: boolean;
   connected: boolean;
   left: boolean;
@@ -131,7 +135,7 @@ export class RoomManager {
 
   createPrivate(
     socket: IoSocket,
-    input: { name: string; car: CarId; difficulty: Difficulty; token: string },
+    input: { name: string; car: CarId; skin: SkinId; trail: TrailId; difficulty: Difficulty; token: string },
   ): JoinedInfo {
     this.leave(socket);
     if (this.rooms.size >= this.config.maxRooms) {
@@ -146,7 +150,7 @@ export class RoomManager {
 
   joinPrivate(
     socket: IoSocket,
-    input: { code: string; name: string; car: CarId; token: string },
+    input: { code: string; name: string; car: CarId; skin: SkinId; trail: TrailId; token: string },
   ): JoinedInfo {
     const room = this.rooms.get(input.code);
     if (!room || room.type !== 'private') {
@@ -170,7 +174,7 @@ export class RoomManager {
 
   findMatch(
     socket: IoSocket,
-    input: { name: string; car: CarId; difficulty: Difficulty; token: string },
+    input: { name: string; car: CarId; skin: SkinId; trail: TrailId; difficulty: Difficulty; token: string },
   ): JoinedInfo {
     this.leave(socket);
     const now = Date.now();
@@ -375,7 +379,7 @@ export class RoomManager {
   private addPlayer(
     room: Room,
     socket: IoSocket,
-    input: { name: string; car: CarId; token: string },
+    input: { name: string; car: CarId; skin: SkinId; trail: TrailId; token: string },
   ): Player {
     const player: Player = {
       id: randomBytes(4).toString('hex'),
@@ -383,6 +387,8 @@ export class RoomManager {
       socketId: socket.id,
       name: input.name,
       car: input.car,
+      skin: input.skin,
+      trail: input.trail,
       ready: false,
       connected: true,
       left: false,
@@ -467,6 +473,8 @@ export class RoomManager {
       id: p.id,
       name: p.name,
       car: p.car,
+      skin: p.skin,
+      trail: p.trail,
       ready: p.id === room.hostId || room.type === 'public' ? true : p.ready,
       connected: p.connected,
       host: p.id === room.hostId,

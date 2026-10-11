@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { DIFFICULTY_LABEL, LEVELS, getLevel, isLevelUnlocked, levelsFor, randomSeed } from '@typerush/shared';
 import { CarArt } from '../components/CarArt';
 import { SupportLink } from '../components/Support';
@@ -16,6 +17,7 @@ export function Home({ go }: { go: Go }) {
   const allDone = cleared >= LEVELS.length;
   const bestWpm = Math.max(0, ...Object.values(profile.bestWpm));
   const today = dayKey();
+  const [linkNote, setLinkNote] = useState<string | null>(null);
   const daily = dailyInfo(today);
   const dailyDone = dailyDoneToday(profile, today);
   const streak = activeStreak(profile.streak, today);
@@ -72,6 +74,21 @@ export function Home({ go }: { go: Go }) {
           {streak > 0 ? `${streak} day streak` : 'Start a streak today'}
         </span>
       </button>
+
+      <p className="center-text">
+        <button
+          className="btn"
+          onClick={() => {
+            const url = `${window.location.origin}${window.location.pathname}?challenge=daily`;
+            const done = () => setLinkNote('Link copied - send it to a friend: they get the same text today.');
+            if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done, () => setLinkNote(url));
+            else setLinkNote(url);
+          }}
+        >
+          Copy today's challenge link
+        </button>
+        {linkNote && <span role="status"> {linkNote}</span>}
+      </p>
 
       <nav className="menu-grid" aria-label="Main menu">
         <button className="menu-card" onClick={click({ name: 'quick' })}>

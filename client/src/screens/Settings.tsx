@@ -111,9 +111,12 @@ export function Settings({ go }: { go: Go }) {
       <section className="panel">
         <h2 className="section-title">Your data</h2>
         <p className="muted">
-          Your nickname, progress, records and settings are saved only in this browser (localStorage). There are no
-          accounts. Online races send your nickname, car and typing progress to the multiplayer server at{' '}
+          Your nickname, progress, records and settings are saved only in this browser (localStorage). Accounts are optional. Online races send your nickname, car and typing progress to the multiplayer server at{' '}
           <code>{serverUrl()}</code>.
+        </p>
+        <p className="muted">
+          <button className="btn" onClick={() => go({ name: 'legal', tab: 'privacy' })}>Privacy</button>{' '}
+          <button className="btn" onClick={() => go({ name: 'legal', tab: 'terms' })}>Terms</button>
         </p>
         {!confirming ? (
           <button className="btn btn-danger" onClick={() => setConfirming(true)}>

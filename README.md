@@ -1,7 +1,7 @@
 # TypeRush - Type Fast. Drive Faster. Win the Race.
 
 A free, open-source multiplayer typing racing game. React + Vite + TypeScript frontend (Canvas 2D rendering, Web Audio sound),
-Node.js + Express + Socket.IO multiplayer server. No paid services, no database, no accounts.
+Node.js + Express + Socket.IO multiplayer server. No paid services. Accounts and a database are optional.
 
 ## Quick start (Windows PowerShell)
 
@@ -56,7 +56,7 @@ per month. See https://render.com/docs/free.
 5. After deploy you get `https://<name>.onrender.com`. Visit `/health` to confirm it answers. The WebSocket URL is the same host (`wss://` is automatic).
 
 Limits: cold start of about a minute after idle (the game shows "connecting..."), rooms live in memory and vanish on restart,
-the online hall of fame is stored on a disk that free hosting wipes on redeploy. Nothing is persistent. That is by design.
+the online hall of fame is stored on a disk that free hosting wipes on redeploy. Add a free database (next sections) to make accounts and boards permanent.
 
 ### 2. Frontend on Cloudflare Pages (free)
 
@@ -95,10 +95,10 @@ without activity.
 
 * Public matchmaking only works when other people are searching at the same time; the UI says so and offers Practice.
 * In-memory state: server restart = rooms gone. Online hall of fame is unverified, not an account system.
-* Typing text is English-only, US-keyboard characters.
+* Daily Challenge, Weekly Cup, Levels and online rooms use English text. Practice and classrooms can also use Hinglish (Hindi in English letters, any keyboard) or Hindi in Devanagari.
 * Anti-cheat is plausibility checking (speed ceiling, bounds, monotonic progress); the server never sees keystrokes, so a determined
   cheater typing a script just below the limit could still win. Rankings are for fun, not for competitions with prizes.
-* Not implemented (ideas): accounts, persistent global leaderboard (e.g. a free Postgres), custom texts, spectators, more languages.
+* Not implemented (ideas): custom texts, spectators, live tournament brackets.
 
 ## Friends, Weekly Cup, Classrooms and optional support/ads (Phase 5)
 
@@ -110,3 +110,39 @@ All of these need a signed-in account (see the accounts section) and, to be perm
 - **Support link and ads (off by default)**: set `VITE_SUPPORT_URL` (an https link, for example a Ko-fi or UPI page) to show a "support the game" link. Set `VITE_ADSENSE_CLIENT` (`ca-pub-...`) and `VITE_ADSENSE_SLOT` to show one AdSense banner on the Community page (never during a race). These are build variables for the client (Cloudflare: Settings > Variables and Secrets > Build). AdSense needs Google's approval of your site first.
 
 Limits: results are checked for believable speed only, there is no payment system, and tournaments are weekly rankings, not live brackets.
+
+## Keep-alive, legal pages and licence (Phase 6)
+
+**Keep the free services awake (UptimeRobot, free).** Render's free web service sleeps after 15 idle minutes and a Supabase
+free project pauses after about a week without activity. `GET /health` answers `{"ok":true,...,"storage":"postgres","db":"ok"}`
+and, when a database is configured, runs a tiny `SELECT 1` on it (3 second limit; `db` is `"error"` if it does not answer),
+so a regular ping keeps both awake.
+
+1. Create a free account at uptimerobot.com > Add New Monitor > type **HTTP(s)**.
+2. URL: `https://<your-server>.onrender.com/health`. Interval: the shortest the free plan allows (currently 5 minutes - check their page).
+3. Optional: in the monitor settings choose the keyword check `"ok":true` so a broken answer also raises an alert.
+
+One always-awake service uses about 720-744 hours a month, which fits Render's 750 free instance hours **only for one service**.
+Do not run two free services around the clock in the same workspace. Pings keep the server awake, they do not make it faster
+or more powerful; the free tier can still restart it at any time.
+
+**Legal pages.** The footer links to Privacy and Terms (in the app: `Legal` screen). They describe what is really stored. Read
+them, adjust the contact line, and have a lawyer check them before you run paid contests or collect data from children.
+Optional build variables for the client: `VITE_FEEDBACK_URL` (an https link such as a Google Form, shown as "Feedback") and
+`VITE_CONTACT` (an email or handle shown on the Privacy page, letters/digits and `@ . _ : / + -` only).
+
+**Licence.** MIT (see `LICENSE`). Anyone may copy and sell the code; if you plan to sell a branded version later, you can
+still keep your own text packs, brand and hosting private.
+
+## Hindi / Hinglish, teacher tools, multiplayer looks (Phase 6)
+
+- **Hinglish** is plain English-alphabet text, so it works on every keyboard and phone. **Hindi (Devanagari)** needs a Hindi keyboard.
+  On Windows add *Hindi Traditional (Inscript)* (Settings > Time & language > Language & region > Add a language > Hindi > Options > Add a keyboard)
+  and switch with Windows+Space. The Hindi texts use only letters, vowel signs, anusvara, virama and `. , ? "` - no nukta letters (the dotted ones such as the Hindi letters for ra-dot, dha-dot, za), no digits - so every character is one key.
+  Each Hindi letter and vowel sign is a separate keypress, and the text is shown one letter-cluster at a time. Phone keyboards that compose words (phonetic Hindi) are not supported; use Hinglish on a phone.
+  WPM uses the same "5 characters = 1 word" rule for every language, so it is not the same as the word counting of government typing exams. The Hindi sentence lists are short (about 10-20 lines per level); add more in `shared/src/textsIndic.ts` (the tests check every character).
+- **Classrooms** can pick a text language when created (stored in the `classes.lang` column; the server adds it automatically to an existing database). The server re-creates the text in that language to check each run.
+- **Teacher tools**: in a class you own, *Download results (CSV)* (opens in Excel/Sheets, names that start with `=` `+` `-` `@` are neutralised) and *Certificate (PNG)*. Students can download their own certificate. It says plainly that it is a TypeRush class result, not an exam certificate.
+- **Daily Challenge link**: *Copy today's challenge link* on the home screen gives `https://<site>/?challenge=daily`, which opens today's race directly.
+- **AI cars are labelled "(AI)"** in practice races, and public matches never contain bots.
+- **Skins and trails are visible to other players** in friends rooms and public matches. The server only checks that the ids exist and relays them; it does not know what you own, so they are cosmetic only and never affect speed or scores.

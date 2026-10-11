@@ -7,6 +7,8 @@ import {
   classInfo,
   cupInfo,
   generateText,
+  isTextLang,
+  type TextLang,
   isDifficulty,
   type AssignmentInfo,
   type Difficulty,
@@ -111,8 +113,8 @@ export function mountCommunityRoutes(app: Express, deps: CommunityDeps): void {
   };
 
   /** Checks a recorded run against the re-created text. */
-  const judge = (info: AssignmentInfo, body: Record<string, unknown>) => {
-    const length = generateText(info.difficulty, info.chars, info.seed, info.tier).length;
+  const judge = (info: AssignmentInfo, body: Record<string, unknown>, lang: TextLang = 'en') => {
+    const length = generateText(info.difficulty, info.chars, info.seed, info.tier, lang).length;
     const check = checkKeyLog(body.times, length);
     if (!check.ok) return null;
     const errors = typeof body.errors === 'number' && Number.isFinite(body.errors) ? Math.max(0, Math.min(length * 3, Math.floor(body.errors))) : 0;
@@ -236,6 +238,7 @@ export function mountCommunityRoutes(app: Express, deps: CommunityDeps): void {
     code: c.code,
     name: c.name,
     difficulty: c.difficulty,
+    lang: c.lang,
     round: c.round,
     owner: c.ownerId === me.id,
   });
@@ -262,11 +265,12 @@ export function mountCommunityRoutes(app: Express, deps: CommunityDeps): void {
       const body = (req.body ?? {}) as Record<string, unknown>;
       const name = sanitizeName(body.name);
       const difficulty: Difficulty = isDifficulty(body.difficulty) ? body.difficulty : 'medium';
+      const lang: TextLang = isTextLang(body.lang) ? body.lang : 'en';
       const owned = (await store.classesOf(me.id)).filter((c) => c.ownerId === me.id);
       if (owned.length >= MAX_OWNED_CLASSES) return fail(res, 400, `You can run up to ${MAX_OWNED_CLASSES} classes.`);
       let record: ClassRecord | null = null;
       for (let i = 0; i < 4 && !record; i++) {
-        const candidate: ClassRecord = { id: randomUUID(), code: makeClassCode(), ownerId: me.id, name, difficulty, round: 1, createdAt: now() };
+        const candidate: ClassRecord = { id: randomUUID(), code: makeClassCode(), ownerId: me.id, name, difficulty, lang, round: 1, createdAt: now() };
         try {
           await store.createClass(candidate);
           record = candidate;
@@ -353,7 +357,7 @@ export function mountCommunityRoutes(app: Express, deps: CommunityDeps): void {
       res.json({
         ok: true,
         class: summary(c, me),
-        assignment: { difficulty: info.difficulty, chars: info.chars, seed: info.seed, tier: info.tier, key: info.key },
+        assignment: { difficulty: info.difficulty, chars: info.chars, seed: info.seed, tier: info.tier, key: info.key, lang: c.lang },
         members: memberIds.length,
         entries: best.map((row, i) => toEntry(row, i + 1)),
         // Only the teacher sees who has not finished the current text yet.
@@ -373,7 +377,7 @@ export function mountCommunityRoutes(app: Express, deps: CommunityDeps): void {
       const c = typeof body.id === 'string' ? await store.classById(body.id) : null;
       if (!c || !(await isMember(c, me.id))) return fail(res, 404, 'Class not found.');
       const info = classInfo(c.id, c.round, c.difficulty);
-      const result = judge(info, body);
+      const result = judge(info, body, c.lang);
       if (!result) return fail(res, 422, 'That run was not accepted: the typing speed was not believable.');
       await store.addScore({ accountId: me.id, name: me.name, ...result, difficulty: info.difficulty, mode: 'class', day: classDay(c), at: now() });
       const memberIds = [...new Set([c.ownerId, ...(await store.classMemberIds(c.id))])];

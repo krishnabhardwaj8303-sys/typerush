@@ -1,6 +1,8 @@
+import { canvasToBlob, classCsv, downloadBlob, downloadCsv, drawCertificate, safeFileName } from '../lib/exportTools';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { DIFFICULTY_LABEL, type Difficulty } from '@typerush/shared';
+import { DIFFICULTY_LABEL, TEXT_LANG_LABEL, type Difficulty, type TextLang } from '@typerush/shared';
 import { DifficultyPicker } from '../components/DifficultyPicker';
+import { LangPicker } from '../components/LangPicker';
 import { AdSlot, SupportLink } from '../components/Support';
 import { TopBar } from '../components/TopBar';
 import { audio } from '../lib/audio';
@@ -298,7 +300,7 @@ function ClassView({ summary, go, onBack }: { summary: ClassSummary; go: Go; onB
           {c.name} <span className="tag">{c.owner ? 'teacher' : 'student'}</span>
         </h2>
         <p>
-          Round {c.round} &middot; {DIFFICULTY_LABEL[data.assignment.difficulty]} &middot; {data.members} {data.members === 1 ? 'person' : 'people'}. Everyone types the same text.
+          Round {c.round} &middot; {DIFFICULTY_LABEL[data.assignment.difficulty]}{data.assignment.lang && data.assignment.lang !== 'en' ? ` (${TEXT_LANG_LABEL[data.assignment.lang]})` : ''} &middot; {data.members} {data.members === 1 ? 'person' : 'people'}. Everyone types the same text.
           Your best attempt in this round counts, and you can try as often as you like.
         </p>
         <p>
@@ -320,6 +322,35 @@ function ClassView({ summary, go, onBack }: { summary: ClassSummary; go: Go; onB
       <section className="panel">
         <h2 className="section-title">Ranking this round</h2>
         <BoardTable entries={data.entries} youName={profile.name} />
+        {data.entries.length > 0 && (
+          <div className="row">
+            <button
+              className="btn"
+              onClick={async () => {
+                const mine = data.entries.find((e) => e.name === profile.name) ?? null;
+                const pick = c.owner ? data.entries[0] : mine;
+                if (!pick) {
+                  setNote('Finish a race in this round first, then you can download your certificate.');
+                  return;
+                }
+                const cv = document.createElement('canvas');
+                drawCertificate(cv, {
+                  name: pick.name,
+                  title: `${c.name} - round ${c.round}`,
+                  wpm: pick.wpm,
+                  accuracy: pick.accuracy,
+                  rank: pick.rank,
+                  date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
+                  issuer: c.owner ? profile.name : 'TypeRush class',
+                });
+                const blob = await canvasToBlob(cv);
+                if (blob) downloadBlob(blob, `certificate_${safeFileName(pick.name)}.png`);
+              }}
+            >
+              {c.owner ? 'Certificate for the top student (PNG)' : 'My certificate (PNG)'}
+            </button>
+          </div>
+        )}
         {data.waiting && data.waiting.length > 0 && (
           <p className="muted">Not finished yet: {data.waiting.join(', ')}</p>
         )}
@@ -339,6 +370,17 @@ function ClassView({ summary, go, onBack }: { summary: ClassSummary; go: Go; onB
                 }}
               >
                 Start a new round (new text)
+              </button>
+              <button
+                className="btn"
+                onClick={() =>
+                  downloadCsv(
+                    classCsv(c.name, c.round, data.entries, data.waiting),
+                    `${safeFileName(c.name)}_round${c.round}.csv`,
+                  )
+                }
+              >
+                Download results (CSV)
               </button>
               {!confirm ? (
                 <button className="btn btn-danger" onClick={() => setConfirm(true)}>
@@ -390,6 +432,7 @@ function ClassTab({ go }: { go: Go }) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [lang, setLang] = useState<TextLang>('en');
   const [note, setNote] = useState<string | null>(null);
 
   if (!linked) return <SignInNeeded go={go} />;
@@ -420,7 +463,7 @@ function ClassTab({ go }: { go: Go }) {
                 <span>
                   <strong>{c.name}</strong> <span className="tag">{c.owner ? 'teacher' : 'student'}</span>{' '}
                   <span className="muted">
-                    {DIFFICULTY_LABEL[c.difficulty]} &middot; round {c.round}
+                    {DIFFICULTY_LABEL[c.difficulty]}{c.lang && c.lang !== 'en' ? ` ${TEXT_LANG_LABEL[c.lang]}` : ''} &middot; round {c.round}
                   </span>
                 </span>
                 <button className="btn" onClick={() => setOpen(c)}>
@@ -462,12 +505,13 @@ function ClassTab({ go }: { go: Go }) {
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="BCA Sem 3" maxLength={14} autoComplete="off" />
         </label>
         <DifficultyPicker value={difficulty} onChange={setDifficulty} label="Class difficulty" />
+        <LangPicker value={lang} onChange={setLang} label="Class text language" />
         <button
           className="btn btn-primary"
           disabled={name.trim().length < 1}
           onClick={async () => {
             setNote(null);
-            const res = await createClass(token, name, difficulty);
+            const res = await createClass(token, name, difficulty, lang);
             if (res.ok) {
               setName('');
               setOpen(res.data.class);

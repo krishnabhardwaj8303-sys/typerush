@@ -27,7 +27,7 @@ export function FindMatch({ go, initialDifficulty }: { go: Go; initialDifficulty
     setError(null);
     resetMatchFlags();
     const res = await online.findMatch(
-      { name: profile.name, car: profile.car, token: profile.playerToken },
+      { name: profile.name, car: profile.car, skin: profile.skin, trail: profile.trail, token: profile.playerToken },
       difficulty,
     );
     setBusy(false);

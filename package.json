@@ -2,6 +2,7 @@
   "name": "typerush",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "TypeRush - Type Fast. Drive Faster. Win the Race.",
   "type": "module",
   "workspaces": [

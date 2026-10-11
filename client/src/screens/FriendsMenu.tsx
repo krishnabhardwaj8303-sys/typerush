@@ -25,7 +25,7 @@ export function FriendsMenu({ go, initialCode }: { go: Go; initialCode?: string 
     connect();
   }, [connect]);
 
-  const identity = { name: profile.name, car: profile.car, token: profile.playerToken };
+  const identity = { name: profile.name, car: profile.car, skin: profile.skin, trail: profile.trail, token: profile.playerToken };
   const ready = online.status === 'online';
 
   const create = async () => {

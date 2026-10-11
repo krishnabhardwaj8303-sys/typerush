@@ -2,8 +2,10 @@
 // Cars live in the shared package (the server must know their ids); skins and trails are
 // drawn only on your own screen, so they live here in the client.
 
-export type SkinId = 'plain' | 'stripes' | 'flames' | 'checker' | 'stars' | 'carbon' | 'gold';
-export type TrailId = 'none' | 'smoke' | 'sparks' | 'bubbles' | 'fire' | 'neon' | 'rainbow';
+import { SKIN_IDS, TRAIL_IDS, isSkinId, isTrailId, type SkinId, type TrailId } from '@typerush/shared';
+
+export { SKIN_IDS, TRAIL_IDS, isSkinId, isTrailId };
+export type { SkinId, TrailId };
 
 export interface ShopItem<T extends string> {
   id: T;
@@ -32,16 +34,6 @@ export const TRAILS: ShopItem<TrailId>[] = [
   { id: 'rainbow', name: 'Rainbow Road', price: 220, blurb: 'Every colour of the rainbow.' },
 ];
 
-export const SKIN_IDS = SKINS.map((s) => s.id);
-export const TRAIL_IDS = TRAILS.map((t) => t.id);
-
-export function isSkinId(value: unknown): value is SkinId {
-  return typeof value === 'string' && (SKIN_IDS as string[]).includes(value);
-}
-
-export function isTrailId(value: unknown): value is TrailId {
-  return typeof value === 'string' && (TRAIL_IDS as string[]).includes(value);
-}
 
 export const FREE_SKINS: SkinId[] = SKINS.filter((s) => s.price === 0).map((s) => s.id);
 export const FREE_TRAILS: TrailId[] = TRAILS.filter((t) => t.price === 0).map((t) => t.id);

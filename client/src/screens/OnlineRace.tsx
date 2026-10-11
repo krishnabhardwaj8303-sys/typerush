@@ -191,6 +191,8 @@ export function OnlineRace({ go }: { go: Go }) {
           id: p.id,
           name: p.name,
           car: p.car,
+          skin: p.skin,
+          trail: p.trail,
           progress: p.finished ? 1 : d.progress,
           speed: p.finished || p.left ? 0 : d.speed,
           isYou: false,
@@ -288,7 +290,7 @@ export function OnlineRace({ go }: { go: Go }) {
     setActionError(null);
     await online.leave();
     const res = await online.findMatch(
-      { name: profile.name, car: profile.car, token: profile.playerToken },
+      { name: profile.name, car: profile.car, skin: profile.skin, trail: profile.trail, token: profile.playerToken },
       difficulty,
     );
     setBusy(false);

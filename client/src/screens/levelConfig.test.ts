@@ -21,3 +21,14 @@ describe('assignmentConfig', () => {
     expect(classInfo('abc', 1, 'easy').seed).toBe(r1.seed);
   });
 });
+
+describe('language in configs', () => {
+  it('keeps English configs free of a lang and carries Hindi/Hinglish through', async () => {
+    const { quickConfig } = await import('./levelConfig');
+    expect(quickConfig('easy', 1, 5).lang).toBeUndefined();
+    expect(quickConfig('easy', 1, 5, 'hindi').lang).toBe('hindi');
+    const spec = { difficulty: 'medium' as const, chars: 120, seed: 9, tier: 3, key: 'k', lang: 'hinglish' as const };
+    expect(assignmentConfig(spec, 'Class', { kind: 'class', classId: 'x' }).lang).toBe('hinglish');
+    expect(assignmentConfig({ ...spec, lang: undefined }, 'Class', { kind: 'class', classId: 'x' }).lang).toBeUndefined();
+  });
+});

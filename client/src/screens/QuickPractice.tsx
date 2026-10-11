@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { DIFFICULTIES, DIFFICULTY_BLURB, DIFFICULTY_LABEL, randomSeed, type Difficulty } from '@typerush/shared';
+import { DIFFICULTIES, DIFFICULTY_BLURB, DIFFICULTY_LABEL, randomSeed, type Difficulty, type TextLang } from '@typerush/shared';
+import { LangPicker } from '../components/LangPicker';
 import { TopBar } from '../components/TopBar';
 import { audio } from '../lib/audio';
 import type { Go } from '../routes';
@@ -8,6 +9,7 @@ import { quickConfig } from './levelConfig';
 export function QuickPractice({ go }: { go: Go }) {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [count, setCount] = useState(2);
+  const [lang, setLang] = useState<TextLang>('en');
 
   return (
     <div className="page">
@@ -28,6 +30,9 @@ export function QuickPractice({ go }: { go: Go }) {
             </button>
           ))}
         </div>
+
+        <h2 className="section-title">Language</h2>
+        <LangPicker value={lang} onChange={setLang} />
 
         <h2 className="section-title">AI opponents</h2>
         <div className="segmented" role="radiogroup" aria-label="Number of AI opponents">
@@ -53,7 +58,7 @@ export function QuickPractice({ go }: { go: Go }) {
           onClick={() => {
             audio.unlock();
             audio.click();
-            go({ name: 'solo', config: quickConfig(difficulty, count, randomSeed()), attempt: 0 });
+            go({ name: 'solo', config: quickConfig(difficulty, count, randomSeed(), lang), attempt: 0 });
           }}
         >
           Start practice

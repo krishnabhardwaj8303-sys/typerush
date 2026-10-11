@@ -1,8 +1,19 @@
 import { createRng, shuffle } from './rng';
 import type { Difficulty } from './types';
+import {
+  HINDI_EXPERT, HINDI_HARD, HINDI_MEDIUM, HINDI_WORDS,
+  HINGLISH_EXPERT, HINGLISH_HARD, HINGLISH_MEDIUM, HINGLISH_WORDS,
+} from './textsIndic';
 
-// All text is plain printable ASCII so every character can be typed on a
-// standard keyboard (no smart quotes, no accents).
+export type TextLang = 'en' | 'hinglish' | 'hindi';
+export const TEXT_LANGS: TextLang[] = ['en', 'hinglish', 'hindi'];
+export const TEXT_LANG_LABEL: Record<TextLang, string> = { en: 'English', hinglish: 'Hinglish', hindi: 'Hindi (Devanagari)' };
+export function isTextLang(value: unknown): value is TextLang {
+  return typeof value === 'string' && (TEXT_LANGS as string[]).includes(value);
+}
+
+// English and Hinglish text is plain printable ASCII so every character can be typed on a
+// standard keyboard (no smart quotes, no accents). Hindi lives in textsIndic.ts (see its header).
 
 /** Easy levels 1-2: words built only from the home row (a s d f g h j k l). */
 const HOME_ROW_WORDS = [
@@ -158,8 +169,17 @@ export function generateText(
   targetChars: number,
   seed: number,
   tier = 1,
+  lang: TextLang = 'en',
 ): string {
   const chars = Math.max(10, Math.floor(targetChars));
+  if (lang === 'hindi' || lang === 'hinglish') {
+    const hindi = lang === 'hindi';
+    if (difficulty === 'easy') return buildWordText(hindi ? HINDI_WORDS : HINGLISH_WORDS, chars, seed);
+    const pools = hindi
+      ? { medium: HINDI_MEDIUM, hard: HINDI_HARD, expert: HINDI_EXPERT }
+      : { medium: HINGLISH_MEDIUM, hard: HINGLISH_HARD, expert: HINGLISH_EXPERT };
+    return buildSentenceText(pools[difficulty], chars, seed);
+  }
   if (difficulty === 'easy') {
     const pool = tier <= 2 ? HOME_ROW_WORDS : SIMPLE_WORDS;
     return buildWordText(pool, chars, seed);

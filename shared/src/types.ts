@@ -59,6 +59,20 @@ export const CARS: CarDef[] = [
 
 export const CAR_IDS: CarId[] = CARS.map((c) => c.id);
 
+// Cosmetics. The server only checks that ids are known and relays them; it does not know what you own,
+// so skins and trails are for show only and never affect speed, score or ranking.
+export type SkinId = 'plain' | 'stripes' | 'flames' | 'checker' | 'stars' | 'carbon' | 'gold';
+export type TrailId = 'none' | 'smoke' | 'sparks' | 'bubbles' | 'fire' | 'neon' | 'rainbow';
+export const SKIN_IDS: SkinId[] = ['plain', 'stripes', 'flames', 'checker', 'stars', 'carbon', 'gold'];
+export const TRAIL_IDS: TrailId[] = ['none', 'smoke', 'sparks', 'bubbles', 'fire', 'neon', 'rainbow'];
+
+export function isSkinId(value: unknown): value is SkinId {
+  return typeof value === 'string' && (SKIN_IDS as string[]).includes(value);
+}
+export function isTrailId(value: unknown): value is TrailId {
+  return typeof value === 'string' && (TRAIL_IDS as string[]).includes(value);
+}
+
 export function isCarId(value: unknown): value is CarId {
   return typeof value === 'string' && (CAR_IDS as string[]).includes(value);
 }
@@ -93,6 +107,8 @@ export interface PublicPlayer {
   id: string;
   name: string;
   car: CarId;
+  skin?: SkinId;
+  trail?: TrailId;
   ready: boolean;
   connected: boolean;
   host: boolean;
@@ -177,11 +193,11 @@ export interface JoinedInfo {
 export interface ClientToServerEvents {
   'time:sync': (ack: Ack<{ serverNow: number }>) => void;
   'room:create': (
-    payload: { name: string; car: CarId; difficulty: Difficulty; token: string },
+    payload: { name: string; car: CarId; difficulty: Difficulty; token: string; skin?: SkinId; trail?: TrailId },
     ack: Ack<JoinedInfo>,
   ) => void;
   'room:join': (
-    payload: { code: string; name: string; car: CarId; token: string },
+    payload: { code: string; name: string; car: CarId; token: string; skin?: SkinId; trail?: TrailId },
     ack: Ack<JoinedInfo>,
   ) => void;
   'room:ready': (payload: { ready: boolean }, ack?: Ack) => void;
@@ -190,7 +206,7 @@ export interface ClientToServerEvents {
   'room:leave': (ack?: Ack) => void;
   'room:rematch': (ack?: Ack) => void;
   'match:find': (
-    payload: { name: string; car: CarId; difficulty: Difficulty; token: string },
+    payload: { name: string; car: CarId; difficulty: Difficulty; token: string; skin?: SkinId; trail?: TrailId },
     ack: Ack<JoinedInfo>,
   ) => void;
   'match:cancel': (ack?: Ack) => void;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLevel, randomSeed } from '@typerush/shared';
 import { audio } from './lib/audio';
+import { FEEDBACK_URL } from './lib/support';
 import { useProfile } from './lib/ProfileContext';
 import { useOnline } from './net/OnlineContext';
 import type { Route } from './routes';
@@ -11,6 +12,7 @@ import { Community } from './screens/Community';
 import { Garage } from './screens/Garage';
 import { Home } from './screens/Home';
 import { Leaderboard } from './screens/Leaderboard';
+import { Legal } from './screens/Legal';
 import { Levels } from './screens/Levels';
 import { Lobby } from './screens/Lobby';
 import { OnlineRace } from './screens/OnlineRace';
@@ -18,7 +20,8 @@ import { QuickPractice } from './screens/QuickPractice';
 import { Searching } from './screens/Searching';
 import { Settings } from './screens/Settings';
 import { SoloRace } from './screens/SoloRace';
-import { levelToConfig, nextLevelOf } from './screens/levelConfig';
+import { dailyConfig, levelToConfig, nextLevelOf } from './screens/levelConfig';
+import { dayKey } from './lib/rewards';
 
 function initialRoute(): Route {
   try {
@@ -28,6 +31,10 @@ function initialRoute(): Route {
       // Remove the invite from the address bar so a refresh does not re-join by accident.
       window.history.replaceState({}, '', window.location.pathname);
       return { name: 'friends', code: room };
+    }
+    if (params.get('challenge') === 'daily') {
+      window.history.replaceState({}, '', window.location.pathname);
+      return { name: 'solo', config: dailyConfig(dayKey()), attempt: 0 };
     }
   } catch {
     /* ignore */
@@ -104,6 +111,9 @@ export function App() {
       case 'account':
         screen = <Account go={go} />;
         break;
+      case 'legal':
+        screen = <Legal go={go} initialTab={route.tab} />;
+        break;
       case 'community':
         screen = <Community go={go} initialTab={route.tab} />;
         break;
@@ -157,7 +167,22 @@ export function App() {
       )}
       <main id="main">{screen}</main>
       <footer className="footer">
-        <span>TypeRush &middot; free &amp; open source &middot; your progress is saved in this browser only</span>
+        <span>
+          TypeRush &middot; free &amp; open source &middot; your progress is saved in this browser (and in the cloud if you sign in)
+        </span>
+        <nav className="footer-links" aria-label="Legal and feedback">
+          <button className="link" onClick={() => go({ name: 'legal', tab: 'privacy' })}>
+            Privacy
+          </button>
+          <button className="link" onClick={() => go({ name: 'legal', tab: 'terms' })}>
+            Terms
+          </button>
+          {FEEDBACK_URL && (
+            <a href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">
+              Feedback
+            </a>
+          )}
+        </nav>
       </footer>
     </div>
   );
