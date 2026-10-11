@@ -7,6 +7,7 @@ import type { Route } from './routes';
 import { FindMatch } from './screens/FindMatch';
 import { FriendsMenu } from './screens/FriendsMenu';
 import { Account } from './screens/Account';
+import { Community } from './screens/Community';
 import { Garage } from './screens/Garage';
 import { Home } from './screens/Home';
 import { Leaderboard } from './screens/Leaderboard';
@@ -103,16 +104,27 @@ export function App() {
       case 'account':
         screen = <Account go={go} />;
         break;
+      case 'community':
+        screen = <Community go={go} initialTab={route.tab} />;
+        break;
       case 'solo': {
         const { config } = route;
         const exit = () =>
-          go(config.mode === 'level' ? { name: 'levels' } : config.mode === 'daily' ? { name: 'home' } : { name: 'quick' });
+          go(
+            config.submit
+              ? { name: 'community', tab: config.submit.kind === 'cup' ? 'cup' : 'class' }
+              : config.mode === 'level'
+                ? { name: 'levels' }
+                : config.mode === 'daily'
+                  ? { name: 'home' }
+                  : { name: 'quick' },
+          );
         // The Daily Challenge keeps its seed, so a retry is the same text for the same day.
         const retry = () =>
           go({
             name: 'solo',
             attempt: route.attempt + 1,
-            config: config.mode === 'daily' ? config : { ...config, seed: randomSeed() },
+            config: config.mode === 'daily' || config.submit ? config : { ...config, seed: randomSeed() },
           });
         const next = config.levelId ? nextLevelOf(config.levelId) : undefined;
         screen = (

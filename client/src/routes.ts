@@ -11,6 +11,7 @@ export type Route =
   | { name: 'match'; difficulty?: Difficulty }
   | { name: 'leaderboard' }
   | { name: 'settings' }
-  | { name: 'account' };
+  | { name: 'account' }
+  | { name: 'community'; tab?: 'friends' | 'cup' | 'class' };
 
 export type Go = (route: Route) => void;

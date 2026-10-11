@@ -1,5 +1,6 @@
 import { DIFFICULTY_LABEL, LEVELS, getLevel, isLevelUnlocked, levelsFor, randomSeed } from '@typerush/shared';
 import { CarArt } from '../components/CarArt';
+import { SupportLink } from '../components/Support';
 import { audio } from '../lib/audio';
 import { useProfile } from '../lib/ProfileContext';
 import { activeStreak, dailyDoneToday, dailyInfo, dayKey } from '../lib/rewards';
@@ -91,6 +92,10 @@ export function Home({ go }: { go: Go }) {
             {cleared}/{LEVELS.length} cleared &middot; {totalStars(profile)} stars
           </span>
         </button>
+        <button className="menu-card" onClick={click({ name: 'community' })}>
+          <strong>Friends, Cup &amp; Classes</strong>
+          <span>Add friends, enter the Weekly Cup, join a class</span>
+        </button>
         <button className="menu-card" onClick={click({ name: 'leaderboard' })}>
           <strong>Leaderboard</strong>
           <span>Your records and the online hall of fame</span>
@@ -120,6 +125,7 @@ export function Home({ go }: { go: Go }) {
           {profile.account.linked ? 'Account: signed in' : 'Account & backup'}
         </button>
       </aside>
+      <SupportLink />
     </div>
   );
 }

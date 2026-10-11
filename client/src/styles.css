@@ -327,3 +327,10 @@ html[data-text-size="xl"] .typing-text { font-size: clamp(1.9rem, 5.6vw, 2.8rem)
 .recovery-box { border: 2px solid var(--gold); background: linear-gradient(180deg, rgba(255, 194, 51, 0.12), rgba(255, 194, 51, 0.03)); }
 .recovery-code { font-family: var(--mono); font-size: clamp(1.1rem, 4.4vw, 1.9rem); font-weight: 800; letter-spacing: 0.06em; text-align: center; margin: 4px 0; word-break: break-all; user-select: all; color: var(--gold); }
 .board-filter { max-width: 240px; margin: 0 auto; }
+
+/* ---------- Phase 5: friends, cup, classes ---------- */
+.center-text { text-align: center; }
+.code-pill { font-family: var(--mono); font-size: 1.3rem; font-weight: 800; letter-spacing: 0.08em; background: var(--panel-2); border: 2px dashed var(--cyan); border-radius: 12px; padding: 8px 16px; display: inline-block; user-select: all; }
+.list-plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.list-item { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.ad-slot { min-height: 60px; max-width: 728px; margin: 8px auto; }

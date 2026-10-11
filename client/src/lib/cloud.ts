@@ -1,6 +1,7 @@
 // Talking to the server's account, cloud-save and leaderboard endpoints.
 
 import { serverUrl } from '../net/OnlineContext';
+import type { Difficulty } from '@typerush/shared';
 import { parseProfile, type Profile } from './storage';
 
 export interface ApiOk<T> {
@@ -173,3 +174,76 @@ export function mergeProfiles(local: Profile, cloudRaw: unknown, cloudIsNewer: b
     daily: newer.daily,
   };
 }
+
+// ---------------------------------------------------------------- friends, weekly cup, classrooms
+
+export interface FriendRow {
+  code: string;
+  name: string;
+  weekBest: { score: number; wpm: number; accuracy: number } | null;
+}
+export interface FriendsData {
+  code: string;
+  friends: FriendRow[];
+  board: (BoardEntry & { you: boolean })[];
+}
+export const fetchFriends = (token: string) => request<FriendsData>('GET', '/api/friends', token);
+export const addFriend = (token: string, code: string) => request<{ name: string }>('POST', '/api/friends/add', token, { code });
+export const removeFriend = (token: string, code: string) => request<Record<string, never>>('POST', '/api/friends/remove', token, { code });
+
+/** What the server hands out for the Weekly Cup and for a class: everything needed to build the race. */
+export interface AssignmentSpec {
+  difficulty: Difficulty;
+  chars: number;
+  seed: number;
+  tier: number;
+  key: string;
+}
+export interface CupData {
+  cup: AssignmentSpec & { week: string; endsAt: number };
+  maxAttempts: number;
+  attemptsUsed: number;
+  entries: BoardEntry[];
+  players: number;
+  me: BoardEntry | null;
+  persistent: boolean;
+}
+export const fetchCup = (token: string | null) => request<CupData>('GET', '/api/cup', token);
+
+export interface ClassSummary {
+  id: string;
+  code: string;
+  name: string;
+  difficulty: Difficulty;
+  round: number;
+  owner: boolean;
+}
+export interface ClassDetail {
+  class: ClassSummary;
+  assignment: AssignmentSpec;
+  members: number;
+  entries: BoardEntry[];
+  waiting?: string[];
+}
+export const fetchClasses = (token: string) => request<{ classes: ClassSummary[] }>('GET', '/api/classes', token);
+export const fetchClass = (token: string, id: string) => request<ClassDetail>('GET', `/api/class/${encodeURIComponent(id)}`, token);
+export const createClass = (token: string, name: string, difficulty: Difficulty) =>
+  request<{ class: ClassSummary }>('POST', '/api/class/create', token, { name, difficulty });
+export const joinClass = (token: string, code: string) => request<{ class: ClassSummary }>('POST', '/api/class/join', token, { code });
+export const leaveClass = (token: string, id: string) => request<Record<string, never>>('POST', '/api/class/leave', token, { id });
+export const newClassRound = (token: string, id: string) => request<{ round: number }>('POST', '/api/class/round', token, { id });
+export const deleteClass = (token: string, id: string) => request<Record<string, never>>('DELETE', `/api/class/${encodeURIComponent(id)}`, token);
+
+/** Where a finished race is sent: the Weekly Cup or a class. */
+export type SubmitTarget = { kind: 'cup' } | { kind: 'class'; classId: string };
+export interface AssignmentResult {
+  wpm: number;
+  accuracy: number;
+  score: number;
+  rank: number | null;
+  players: number;
+}
+export const submitAssignment = (token: string, target: SubmitTarget, times: number[], errors: number) =>
+  target.kind === 'cup'
+    ? request<AssignmentResult>('POST', '/api/cup/submit', token, { times, errors })
+    : request<AssignmentResult>('POST', '/api/class/submit', token, { id: target.classId, times, errors });

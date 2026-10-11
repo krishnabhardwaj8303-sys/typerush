@@ -1,5 +1,6 @@
 import { quickRaceChars, quickRaceOpponents, levelsFor, type Difficulty, type LevelDef } from '@typerush/shared';
 import { dailyInfo, dailyOpponents, dayKey } from '../lib/rewards';
+import type { AssignmentSpec, SubmitTarget } from '../lib/cloud';
 import type { SoloConfig } from './SoloRace';
 
 export function levelToConfig(level: LevelDef, seed: number): SoloConfig {
@@ -51,5 +52,20 @@ export function dailyConfig(day: string = dayKey()): SoloConfig {
     seed: info.seed,
     title: `Daily Challenge (${info.day})`,
     day: info.day,
+  };
+}
+
+/** A text handed out by the server (Weekly Cup or a class): same text, track and opponents for everyone. */
+export function assignmentConfig(spec: AssignmentSpec, title: string, submit: SubmitTarget): SoloConfig {
+  return {
+    mode: 'quick',
+    difficulty: spec.difficulty,
+    tier: spec.tier,
+    chars: spec.chars,
+    minAccuracy: null,
+    opponents: dailyOpponents(spec.difficulty),
+    seed: spec.seed,
+    title,
+    submit,
   };
 }

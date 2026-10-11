@@ -5,7 +5,7 @@ import type { Difficulty } from '@typerush/shared';
 //  - PgStore keeps everything in a PostgreSQL database (Supabase, Neon... any free Postgres works).
 //  - MemoryStore is used when DATABASE_URL is not set: everything works, but is lost on restart.
 
-export type ScoreMode = 'public' | 'daily';
+export type ScoreMode = 'public' | 'daily' | 'cup' | 'class';
 
 export interface AccountRecord {
   id: string;
@@ -38,8 +38,20 @@ export interface ScoreQuery {
   day?: string;
   sinceMs?: number;
   difficulty?: Difficulty;
+  /** Only rows of these accounts. */
+  accountIds?: string[];
   /** Maximum rows to read (the caller keeps the best row per player). */
   limit: number;
+}
+
+export interface ClassRecord {
+  id: string;
+  code: string;
+  ownerId: string;
+  name: string;
+  difficulty: Difficulty;
+  round: number;
+  createdAt: number;
 }
 
 export interface Store {
@@ -58,6 +70,26 @@ export interface Store {
 
   addScore(score: ScoreInput): Promise<void>;
   topScores(query: ScoreQuery): Promise<ScoreRow[]>;
+
+  // friends
+  /** Returns the friend code of an account, saving `candidate` as its code when it has none yet. */
+  ensureFriendCode(accountId: string, candidate: string): Promise<string>;
+  accountIdByFriendCode(code: string): Promise<string | null>;
+  addFriendship(a: string, b: string): Promise<void>;
+  removeFriendship(a: string, b: string): Promise<void>;
+  friendIds(accountId: string): Promise<string[]>;
+  accountNames(ids: string[]): Promise<Map<string, string>>;
+
+  // classrooms
+  createClass(c: ClassRecord): Promise<void>;
+  classByCode(code: string): Promise<ClassRecord | null>;
+  classById(id: string): Promise<ClassRecord | null>;
+  classesOf(accountId: string): Promise<ClassRecord[]>;
+  joinClass(classId: string, accountId: string): Promise<void>;
+  leaveClass(classId: string, accountId: string): Promise<void>;
+  classMemberIds(classId: string): Promise<string[]>;
+  nextClassRound(classId: string): Promise<void>;
+  deleteClass(classId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------- memory
@@ -68,6 +100,10 @@ export class MemoryStore implements Store {
   private tokens = new Map<string, string>();
   private scores: ScoreRow[] = [];
   private nextId = 1;
+  private friendCodes = new Map<string, string>();
+  private friendships = new Set<string>();
+  private classes = new Map<string, ClassRecord>();
+  private members = new Set<string>();
 
   async init(): Promise<void> {}
   async close(): Promise<void> {}
@@ -121,6 +157,89 @@ export class MemoryStore implements Store {
     this.accounts.delete(accountId);
     for (const [hash, id] of this.tokens) if (id === accountId) this.tokens.delete(hash);
     this.scores = this.scores.filter((s) => s.accountId !== accountId);
+    this.friendCodes.delete(accountId);
+    for (const key of [...this.friendships]) if (key.split('|').includes(accountId)) this.friendships.delete(key);
+    for (const c of [...this.classes.values()]) if (c.ownerId === accountId) await this.deleteClass(c.id);
+    for (const key of [...this.members]) if (key.endsWith(`|${accountId}`)) this.members.delete(key);
+  }
+
+  async ensureFriendCode(accountId: string, candidate: string) {
+    const existing = this.friendCodes.get(accountId);
+    if (existing) return existing;
+    for (const code of this.friendCodes.values()) if (code === candidate) throw new Error('friend code collision');
+    this.friendCodes.set(accountId, candidate);
+    return candidate;
+  }
+
+  async accountIdByFriendCode(code: string) {
+    for (const [id, c] of this.friendCodes) if (c === code) return id;
+    return null;
+  }
+
+  async addFriendship(a: string, b: string) {
+    this.friendships.add(`${a}|${b}`);
+    this.friendships.add(`${b}|${a}`);
+  }
+
+  async removeFriendship(a: string, b: string) {
+    this.friendships.delete(`${a}|${b}`);
+    this.friendships.delete(`${b}|${a}`);
+  }
+
+  async friendIds(accountId: string) {
+    return [...this.friendships].filter((k) => k.startsWith(`${accountId}|`)).map((k) => k.split('|')[1]);
+  }
+
+  async accountNames(ids: string[]) {
+    const out = new Map<string, string>();
+    for (const id of ids) {
+      const a = this.accounts.get(id);
+      if (a) out.set(id, a.name);
+    }
+    return out;
+  }
+
+  async createClass(c: ClassRecord) {
+    this.classes.set(c.id, { ...c });
+  }
+
+  async classByCode(code: string) {
+    for (const c of this.classes.values()) if (c.code === code) return { ...c };
+    return null;
+  }
+
+  async classById(id: string) {
+    const c = this.classes.get(id);
+    return c ? { ...c } : null;
+  }
+
+  async classesOf(accountId: string) {
+    return [...this.classes.values()]
+      .filter((c) => c.ownerId === accountId || this.members.has(`${c.id}|${accountId}`))
+      .map((c) => ({ ...c }));
+  }
+
+  async joinClass(classId: string, accountId: string) {
+    this.members.add(`${classId}|${accountId}`);
+  }
+
+  async leaveClass(classId: string, accountId: string) {
+    this.members.delete(`${classId}|${accountId}`);
+  }
+
+  async classMemberIds(classId: string) {
+    return [...this.members].filter((k) => k.startsWith(`${classId}|`)).map((k) => k.split('|')[1]);
+  }
+
+  async nextClassRound(classId: string) {
+    const c = this.classes.get(classId);
+    if (c) c.round += 1;
+  }
+
+  async deleteClass(classId: string) {
+    this.classes.delete(classId);
+    for (const key of [...this.members]) if (key.startsWith(`${classId}|`)) this.members.delete(key);
+    this.scores = this.scores.filter((s) => !(s.mode === 'class' && s.day.startsWith(`${classId}:`)));
   }
 
   async addScore(score: ScoreInput) {
@@ -135,7 +254,8 @@ export class MemoryStore implements Store {
           (!q.mode || s.mode === q.mode) &&
           (!q.day || s.day === q.day) &&
           (q.sinceMs === undefined || s.at >= q.sinceMs) &&
-          (!q.difficulty || s.difficulty === q.difficulty),
+          (!q.difficulty || s.difficulty === q.difficulty) &&
+          (!q.accountIds || (s.accountId !== null && q.accountIds.includes(s.accountId))),
       )
       .sort((a, b) => b.score - a.score || b.wpm - a.wpm || a.at - b.at)
       .slice(0, q.limit);
@@ -173,6 +293,29 @@ const SCHEMA = [
     mode TEXT NOT NULL,
     day TEXT NOT NULL,
     created_at BIGINT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS friend_codes (
+    account_id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE
+  )`,
+  `CREATE TABLE IF NOT EXISTS friendships (
+    account_id TEXT NOT NULL,
+    friend_id TEXT NOT NULL,
+    PRIMARY KEY (account_id, friend_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS classes (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    owner_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    difficulty TEXT NOT NULL,
+    round INTEGER NOT NULL,
+    created_at BIGINT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS class_members (
+    class_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    PRIMARY KEY (class_id, account_id)
   )`,
   'CREATE INDEX IF NOT EXISTS scores_mode_day_idx ON scores (mode, day, score)',
   'CREATE INDEX IF NOT EXISTS scores_created_idx ON scores (created_at)',
@@ -240,7 +383,113 @@ export class PgStore implements Store {
   async deleteAccount(accountId: string) {
     await this.pool.query('DELETE FROM account_tokens WHERE account_id = $1', [accountId]);
     await this.pool.query('DELETE FROM scores WHERE account_id = $1', [accountId]);
+    await this.pool.query('DELETE FROM friend_codes WHERE account_id = $1', [accountId]);
+    await this.pool.query('DELETE FROM friendships WHERE account_id = $1 OR friend_id = $1', [accountId]);
+    const owned = await this.pool.query('SELECT id FROM classes WHERE owner_id = $1', [accountId]);
+    for (const row of owned.rows) await this.deleteClass(String(row.id));
+    await this.pool.query('DELETE FROM class_members WHERE account_id = $1', [accountId]);
     await this.pool.query('DELETE FROM accounts WHERE id = $1', [accountId]);
+  }
+
+  async ensureFriendCode(accountId: string, candidate: string) {
+    const existing = await this.pool.query('SELECT code FROM friend_codes WHERE account_id = $1', [accountId]);
+    if (existing.rows[0]) return String(existing.rows[0].code);
+    await this.pool.query('INSERT INTO friend_codes (account_id, code) VALUES ($1, $2)', [accountId, candidate]);
+    return candidate;
+  }
+
+  async accountIdByFriendCode(code: string) {
+    const res = await this.pool.query('SELECT account_id FROM friend_codes WHERE code = $1', [code]);
+    return res.rows[0] ? String(res.rows[0].account_id) : null;
+  }
+
+  async addFriendship(a: string, b: string) {
+    for (const [x, y] of [[a, b], [b, a]]) {
+      await this.pool.query('DELETE FROM friendships WHERE account_id = $1 AND friend_id = $2', [x, y]);
+      await this.pool.query('INSERT INTO friendships (account_id, friend_id) VALUES ($1, $2)', [x, y]);
+    }
+  }
+
+  async removeFriendship(a: string, b: string) {
+    await this.pool.query(
+      'DELETE FROM friendships WHERE (account_id = $1 AND friend_id = $2) OR (account_id = $2 AND friend_id = $1)',
+      [a, b],
+    );
+  }
+
+  async friendIds(accountId: string) {
+    const res = await this.pool.query('SELECT friend_id FROM friendships WHERE account_id = $1', [accountId]);
+    return res.rows.map((r) => String(r.friend_id));
+  }
+
+  async accountNames(ids: string[]) {
+    const out = new Map<string, string>();
+    for (const id of ids) {
+      const res = await this.pool.query('SELECT name FROM accounts WHERE id = $1', [id]);
+      if (res.rows[0]) out.set(id, String(res.rows[0].name));
+    }
+    return out;
+  }
+
+  private toClass(r: Record<string, unknown>): ClassRecord {
+    return {
+      id: String(r.id),
+      code: String(r.code),
+      ownerId: String(r.owner_id),
+      name: String(r.name),
+      difficulty: String(r.difficulty) as Difficulty,
+      round: Number(r.round),
+      createdAt: Number(r.created_at),
+    };
+  }
+
+  async createClass(c: ClassRecord) {
+    await this.pool.query(
+      'INSERT INTO classes (id, code, owner_id, name, difficulty, round, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [c.id, c.code, c.ownerId, c.name, c.difficulty, c.round, c.createdAt],
+    );
+  }
+
+  async classByCode(code: string) {
+    const res = await this.pool.query('SELECT * FROM classes WHERE code = $1', [code]);
+    return res.rows[0] ? this.toClass(res.rows[0]) : null;
+  }
+
+  async classById(id: string) {
+    const res = await this.pool.query('SELECT * FROM classes WHERE id = $1', [id]);
+    return res.rows[0] ? this.toClass(res.rows[0]) : null;
+  }
+
+  async classesOf(accountId: string) {
+    const res = await this.pool.query(
+      'SELECT * FROM classes WHERE owner_id = $1 OR id IN (SELECT class_id FROM class_members WHERE account_id = $1) ORDER BY created_at ASC',
+      [accountId],
+    );
+    return res.rows.map((r) => this.toClass(r));
+  }
+
+  async joinClass(classId: string, accountId: string) {
+    await this.pool.query('DELETE FROM class_members WHERE class_id = $1 AND account_id = $2', [classId, accountId]);
+    await this.pool.query('INSERT INTO class_members (class_id, account_id) VALUES ($1, $2)', [classId, accountId]);
+  }
+
+  async leaveClass(classId: string, accountId: string) {
+    await this.pool.query('DELETE FROM class_members WHERE class_id = $1 AND account_id = $2', [classId, accountId]);
+  }
+
+  async classMemberIds(classId: string) {
+    const res = await this.pool.query('SELECT account_id FROM class_members WHERE class_id = $1', [classId]);
+    return res.rows.map((r) => String(r.account_id));
+  }
+
+  async nextClassRound(classId: string) {
+    await this.pool.query('UPDATE classes SET round = round + 1 WHERE id = $1', [classId]);
+  }
+
+  async deleteClass(classId: string) {
+    await this.pool.query('DELETE FROM class_members WHERE class_id = $1', [classId]);
+    await this.pool.query("DELETE FROM scores WHERE mode = 'class' AND day LIKE $1", [`${classId}:%`]);
+    await this.pool.query('DELETE FROM classes WHERE id = $1', [classId]);
   }
 
   async addScore(s: ScoreInput) {
@@ -261,6 +510,14 @@ export class PgStore implements Store {
     if (q.day) add('day = ?', q.day);
     if (q.sinceMs !== undefined) add('created_at >= ?', q.sinceMs);
     if (q.difficulty) add('difficulty = ?', q.difficulty);
+    if (q.accountIds) {
+      if (q.accountIds.length === 0) return [];
+      const marks = q.accountIds.map((id) => {
+        params.push(id);
+        return `$${params.length}`;
+      });
+      where.push(`account_id IN (${marks.join(', ')})`);
+    }
     params.push(Math.max(1, Math.min(2000, Math.floor(q.limit))));
     const sql = `SELECT * FROM scores ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY score DESC, wpm DESC, created_at ASC LIMIT $${params.length}`;
     const res = await this.pool.query(sql, params);

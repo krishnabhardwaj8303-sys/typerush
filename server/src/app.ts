@@ -4,6 +4,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import type { Ack, ClientToServerEvents, ServerToClientEvents } from '@typerush/shared';
 import { mountAccountRoutes } from './accounts';
+import { mountCommunityRoutes } from './community';
 import { isOriginAllowed, type ServerConfig } from './config';
 import { Leaderboard } from './leaderboard';
 import { TokenBucket, WindowCounter } from './rateLimit';
@@ -95,7 +96,8 @@ export function createTypeRushServer(config: ServerConfig, deps: { store?: Store
   app.get('/api/leaderboard', (_req, res) => {
     res.json({ entries: leaderboard.top(25), note: 'Unverified results from public matches. Resets when the server restarts on free hosting.' });
   });
-  mountAccountRoutes(app, { store });
+  mountCommunityRoutes(app, { store });
+  mountAccountRoutes(app, { store }); // last: it also installs the JSON error handler for /api
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });
   });

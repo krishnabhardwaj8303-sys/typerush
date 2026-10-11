@@ -99,3 +99,14 @@ without activity.
 * Anti-cheat is plausibility checking (speed ceiling, bounds, monotonic progress); the server never sees keystrokes, so a determined
   cheater typing a script just below the limit could still win. Rankings are for fun, not for competitions with prizes.
 * Not implemented (ideas): accounts, persistent global leaderboard (e.g. a free Postgres), custom texts, spectators, more languages.
+
+## Friends, Weekly Cup, Classrooms and optional support/ads (Phase 5)
+
+All of these need a signed-in account (see the accounts section) and, to be permanent, `DATABASE_URL`.
+
+- **Friends**: every account gets a friend code (`FR-XXXXXX`). Typing a friend's code makes you friends both ways (max 50). The Friends tab shows a weekly ranking of you and your friends.
+- **Weekly Cup**: one hard/expert text for everybody from Monday to Sunday (UTC), best of 3 attempts, ranking checked by the server like the Daily Challenge.
+- **Classrooms**: a teacher creates a class (`CL-XXXXXX`), students join with the code and everyone races the same text. The teacher can start a new round (new text, empty ranking) and sees who has not finished. Max 5 classes per teacher, 80 students per class.
+- **Support link and ads (off by default)**: set `VITE_SUPPORT_URL` (an https link, for example a Ko-fi or UPI page) to show a "support the game" link. Set `VITE_ADSENSE_CLIENT` (`ca-pub-...`) and `VITE_ADSENSE_SLOT` to show one AdSense banner on the Community page (never during a race). These are build variables for the client (Cloudflare: Settings > Variables and Secrets > Build). AdSense needs Google's approval of your site first.
+
+Limits: results are checked for believable speed only, there is no payment system, and tournaments are weekly rankings, not live brackets.

@@ -6,3 +6,4 @@ export * from './texts';
 export * from './ai';
 export * from './levels';
 export * from './daily';
+export * from './challenges';

@@ -15,7 +15,7 @@ import { ResultsView } from '../components/ResultsView';
 import type { HudStats, StandingRow } from '../components/Hud';
 import { audio } from '../lib/audio';
 import { useProfile } from '../lib/ProfileContext';
-import { submitDaily } from '../lib/cloud';
+import { submitAssignment, submitDaily, type SubmitTarget } from '../lib/cloud';
 import type { Reward } from '../lib/rewards';
 import { TypingSession } from '../lib/typingSession';
 import { useTypingInput } from '../lib/useTypingInput';
@@ -40,6 +40,8 @@ export interface SoloConfig {
   title: string;
   /** Daily Challenge only: the calendar day (YYYY-MM-DD) of the challenge. */
   day?: string;
+  /** Weekly Cup / classroom races: where to send the result (the server checks it). */
+  submit?: SubmitTarget;
 }
 
 interface Props {
@@ -218,6 +220,22 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
         stars: result.stars,
       });
       setReward(earned);
+
+      if (config.submit) {
+        if (profile.account.linked) {
+          setBoardNote('Sending your result...');
+          const session = sessionRef.current;
+          void submitAssignment(profile.playerToken, config.submit, session.times, session.errors).then((res) =>
+            setBoardNote(
+              res.ok
+                ? `Ranking: you are #${res.data.rank ?? '?'} of ${res.data.players} (${Math.round(res.data.wpm)} WPM, ${res.data.score} points, checked by the server).`
+                : res.error,
+            ),
+          );
+        } else {
+          setBoardNote('Sign in (Menu > Account & backup) to send this result.');
+        }
+      }
 
       if (config.mode === 'daily' && config.day) {
         if (profile.account.linked) {
@@ -425,7 +443,9 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
                 Math.max(profile.daily?.best.wpm ?? 0, you.wpm),
               )} WPM. ${boardNote ?? ''} Come back tomorrow for a new one!`,
             }
-          : null;
+          : config.submit
+            ? { tone: 'info' as const, text: boardNote ?? '' }
+            : null;
     return (
       <ResultsView
         rows={rows}
