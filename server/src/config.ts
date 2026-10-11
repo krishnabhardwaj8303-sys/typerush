@@ -40,6 +40,10 @@ export interface ServerConfig {
   maxSocketsPerIp: number;
   maxRooms: number;
   leaderboardFile: string | null;
+  /** PostgreSQL connection string for accounts and permanent leaderboards (null = in-memory only). */
+  databaseUrl: string | null;
+  /** Use SSL for the database connection (hosted databases need it). */
+  databaseSsl: boolean;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -76,6 +80,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     maxSocketsPerIp: 20,
     maxRooms: 500,
     leaderboardFile: env.LEADERBOARD_FILE === 'none' ? null : (env.LEADERBOARD_FILE ?? 'data/leaderboard.json'),
+    databaseUrl: env.DATABASE_URL?.trim() ? env.DATABASE_URL.trim() : null,
+    databaseSsl: env.DATABASE_SSL !== 'false',
   };
 }
 

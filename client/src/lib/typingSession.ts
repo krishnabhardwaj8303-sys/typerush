@@ -15,6 +15,8 @@ export class TypingSession {
   correct = 0;
   errors = 0;
   finishedAtMs: number | null = null;
+  /** Race time (ms) at which each correct character was typed. Used to verify Daily Challenge results. */
+  times: number[] = [];
 
   constructor(readonly text: string) {}
 
@@ -39,6 +41,7 @@ export class TypingSession {
     if (key === this.text[this.pos]) {
       this.pos++;
       this.correct++;
+      this.times.push(Math.max(0, Math.round(raceMs)));
       if (this.done) {
         this.finishedAtMs = Math.max(1, raceMs);
         return 'done';

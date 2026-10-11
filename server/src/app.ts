@@ -3,10 +3,12 @@ import cors from 'cors';
 import express from 'express';
 import { Server } from 'socket.io';
 import type { Ack, ClientToServerEvents, ServerToClientEvents } from '@typerush/shared';
+import { mountAccountRoutes } from './accounts';
 import { isOriginAllowed, type ServerConfig } from './config';
 import { Leaderboard } from './leaderboard';
 import { TokenBucket, WindowCounter } from './rateLimit';
 import { RoomManager, type IoServer, type IoSocket } from './rooms';
+import { MemoryStore, type Store } from './store';
 import {
   ValidationError,
   parseCreate,
@@ -22,6 +24,7 @@ export interface RunningServer {
   io: IoServer;
   manager: RoomManager;
   leaderboard: Leaderboard;
+  store: Store;
   config: ServerConfig;
   listen(port?: number): Promise<number>;
   close(): Promise<void>;
@@ -43,7 +46,8 @@ function clientIp(socket: IoSocket, config: ServerConfig): string {
   return socket.handshake.address || 'unknown';
 }
 
-export function createTypeRushServer(config: ServerConfig): RunningServer {
+export function createTypeRushServer(config: ServerConfig, deps: { store?: Store } = {}): RunningServer {
+  const store = deps.store ?? new MemoryStore();
   const app = express();
   app.disable('x-powered-by');
   if (config.trustProxy) app.set('trust proxy', 1);
@@ -79,18 +83,19 @@ export function createTypeRushServer(config: ServerConfig): RunningServer {
   });
 
   const leaderboard = new Leaderboard(config.leaderboardFile);
-  const manager = new RoomManager(io, config, leaderboard);
+  const manager = new RoomManager(io, config, leaderboard, store);
   const startedAt = Date.now();
 
   app.get('/', (_req, res) => {
     res.type('text/plain').send('TypeRush multiplayer server is running. Open the game in your browser to play.');
   });
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, name: 'typerush-server', uptimeSec: Math.round((Date.now() - startedAt) / 1000), ...manager.stats() });
+    res.json({ ok: true, name: 'typerush-server', uptimeSec: Math.round((Date.now() - startedAt) / 1000), storage: store.kind, ...manager.stats() });
   });
   app.get('/api/leaderboard', (_req, res) => {
     res.json({ entries: leaderboard.top(25), note: 'Unverified results from public matches. Resets when the server restarts on free hosting.' });
   });
+  mountAccountRoutes(app, { store });
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });
   });
@@ -239,6 +244,7 @@ export function createTypeRushServer(config: ServerConfig): RunningServer {
     io,
     manager,
     leaderboard,
+    store,
     config,
     listen(port = config.port) {
       return new Promise((resolve, reject) => {
@@ -254,6 +260,7 @@ export function createTypeRushServer(config: ServerConfig): RunningServer {
       manager.close();
       leaderboard.close();
       await io.close();
+      await store.close().catch(() => undefined);
     },
   };
 }

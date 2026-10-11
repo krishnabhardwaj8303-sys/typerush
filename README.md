@@ -74,6 +74,23 @@ at build time (it is baked into the build, so rebuild after changing it).
 Other hosts: Fly.io no longer offers free plans to new accounts and Railway only gives a small trial credit, so Render is the
 recommended free option. Without a deployed server, Practice / Levels still work 100% offline; only Friends Race and Find Match need it.
 
+## Accounts, cloud save and permanent leaderboards (optional)
+
+Without any setup everything works, but accounts and boards live in the server's memory and reset when the free
+host restarts. To make them permanent, give the server a free PostgreSQL database:
+
+1. Create a free project at supabase.com (or any free Postgres, e.g. Neon).
+2. Copy the **Session pooler** connection string (Project > Connect). The direct connection is IPv6-only and does not
+   work from most free hosts. Replace `[YOUR-PASSWORD]` with your database password.
+3. In Render, add the environment variable `DATABASE_URL` with that string and redeploy. The server creates its own
+   tables on start (`/health` then shows `"storage":"postgres"`).
+
+How it works: an account has no password. It is protected by a secret recovery code (`TR-XXXX-XXXX-XXXX-XXXX`, shown
+once; only its hash is stored). Each device has its own random token (also stored only as a hash). The cloud save never
+contains the device token. Daily Challenge results are sent as a typing log and re-checked by the server (the text is
+re-created from the day's seed, speeds must be humanly possible). Supabase free projects pause after about a week
+without activity.
+
 ## Honest limitations
 
 * Public matchmaking only works when other people are searching at the same time; the UI says so and offers Practice.

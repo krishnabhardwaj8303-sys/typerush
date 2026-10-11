@@ -24,7 +24,9 @@ import {
   type ServerToClientEvents,
 } from '@typerush/shared';
 import type { ServerConfig } from './config';
+import { sha256 } from './accounts';
 import type { Leaderboard } from './leaderboard';
+import type { Store } from './store';
 import { ValidationError, parseProgress } from './validation';
 
 export type IoServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -109,6 +111,7 @@ export class RoomManager {
     private io: IoServer,
     private config: ServerConfig,
     private leaderboard: Leaderboard,
+    private store: Store,
   ) {
     this.sweeper = setInterval(() => this.sweep(), config.sweepMs);
     this.sweeper.unref?.();
@@ -632,7 +635,33 @@ export class RoomManager {
           });
         }
       }
+      this.persistScores(room);
     }
+  }
+
+  /** Saves verified public-match results to the store (permanent when a database is connected). */
+  private persistScores(room: Room): void {
+    const rows = room.results?.rows ?? [];
+    const at = Date.now();
+    const day = new Date(at).toISOString().slice(0, 10);
+    void (async () => {
+      for (const row of rows) {
+        if (!row.finished || row.disqualified || row.isBot || row.score.total <= 0) continue;
+        const token = room.players.find((p) => p.id === row.playerId)?.token;
+        const account = token ? await this.store.accountByToken(sha256(token)) : null;
+        await this.store.addScore({
+          accountId: account?.id ?? null,
+          name: account?.name ?? row.name,
+          wpm: row.wpm,
+          accuracy: row.accuracy,
+          score: row.score.total,
+          difficulty: room.difficulty,
+          mode: 'public',
+          day,
+          at,
+        });
+      }
+    })().catch((error: unknown) => console.warn('[store] could not save scores:', (error as Error).message));
   }
 
   private computeResults(room: Room): RaceResults {

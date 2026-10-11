@@ -6,6 +6,7 @@ import { useOnline } from './net/OnlineContext';
 import type { Route } from './routes';
 import { FindMatch } from './screens/FindMatch';
 import { FriendsMenu } from './screens/FriendsMenu';
+import { Account } from './screens/Account';
 import { Garage } from './screens/Garage';
 import { Home } from './screens/Home';
 import { Leaderboard } from './screens/Leaderboard';
@@ -98,6 +99,9 @@ export function App() {
         break;
       case 'settings':
         screen = <Settings go={go} />;
+        break;
+      case 'account':
+        screen = <Account go={go} />;
         break;
       case 'solo': {
         const { config } = route;

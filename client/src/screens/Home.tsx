@@ -116,6 +116,9 @@ export function Home({ go }: { go: Go }) {
         <button className="btn" onClick={click({ name: 'garage' })}>
           Garage &amp; Shop
         </button>
+        <button className="btn" onClick={click({ name: 'account' })}>
+          {profile.account.linked ? 'Account: signed in' : 'Account & backup'}
+        </button>
       </aside>
     </div>
   );

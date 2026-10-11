@@ -55,6 +55,14 @@ export interface Owned {
   trails: TrailId[];
 }
 
+export interface AccountState {
+  /** True when this device is signed in to a cloud account (see the Account screen). */
+  linked: boolean;
+  accountId: string | null;
+  /** When the cloud save was last uploaded or downloaded by this device. */
+  lastSyncAt: number | null;
+}
+
 export interface Profile {
   version: 1;
   playerToken: string;
@@ -80,6 +88,7 @@ export interface Profile {
   owned: Owned;
   skin: SkinId;
   trail: TrailId;
+  account: AccountState;
 }
 
 export const STORAGE_KEY = 'typerush.profile.v1';
@@ -119,6 +128,7 @@ export function defaultProfile(): Profile {
     owned: defaultOwned(),
     skin: 'plain',
     trail: 'none',
+    account: { linked: false, accountId: null, lastSyncAt: null },
   };
 }
 
@@ -131,6 +141,16 @@ export function defaultOwned(): Owned {
 }
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseAccount(raw: unknown): AccountState {
+  const a = (raw && typeof raw === 'object' ? raw : {}) as Partial<AccountState>;
+  const linked = a.linked === true && typeof a.accountId === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(a.accountId);
+  return {
+    linked,
+    accountId: linked ? (a.accountId as string) : null,
+    lastSyncAt: linked && typeof a.lastSyncAt === 'number' && Number.isFinite(a.lastSyncAt) ? a.lastSyncAt : null,
+  };
+}
 
 function idList<T extends string>(value: unknown, valid: readonly T[], free: readonly T[]): T[] {
   const out = new Set<T>(free);
@@ -243,6 +263,7 @@ export function parseProfile(raw: string | null): Profile {
       owned,
       skin,
       trail,
+      account: parseAccount(data.account),
     };
   } catch {
     return base;

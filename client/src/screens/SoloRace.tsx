@@ -15,6 +15,7 @@ import { ResultsView } from '../components/ResultsView';
 import type { HudStats, StandingRow } from '../components/Hud';
 import { audio } from '../lib/audio';
 import { useProfile } from '../lib/ProfileContext';
+import { submitDaily } from '../lib/cloud';
 import type { Reward } from '../lib/rewards';
 import { TypingSession } from '../lib/typingSession';
 import { useTypingInput } from '../lib/useTypingInput';
@@ -37,6 +38,8 @@ export interface SoloConfig {
   opponents: AiProfile[];
   seed: number;
   title: string;
+  /** Daily Challenge only: the calendar day (YYYY-MM-DD) of the challenge. */
+  day?: string;
 }
 
 interface Props {
@@ -161,6 +164,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
   const [standings, setStandings] = useState<StandingRow[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [reward, setReward] = useState<Reward | null>(null);
+  const [boardNote, setBoardNote] = useState<string | null>(null);
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -214,8 +218,24 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
         stars: result.stars,
       });
       setReward(earned);
+
+      if (config.mode === 'daily' && config.day) {
+        if (profile.account.linked) {
+          setBoardNote("Sending your result to today's leaderboard...");
+          const session = sessionRef.current;
+          void submitDaily(profile.playerToken, config.day, session.times, session.errors).then((res) =>
+            setBoardNote(
+              res.ok
+                ? `Leaderboard: you are #${res.data.rank ?? '?'} of ${res.data.players} today (${Math.round(res.data.wpm)} WPM, ${res.data.score} points, checked by the server).`
+                : res.error,
+            ),
+          );
+        } else {
+          setBoardNote('Create an account (Menu > Account & backup) to put your Daily Challenge result on the leaderboard.');
+        }
+      }
     }
-  }, [addRace, config, profile.car, profile.name, setPhase, text.length]);
+  }, [addRace, config, profile.account.linked, profile.car, profile.name, profile.playerToken, setPhase, text.length]);
 
   const onChar = useCallback(
     (ch: string) => {
@@ -403,7 +423,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
               tone: 'info' as const,
               text: `Daily Challenge: everyone gets this same text today. Your best today: ${Math.round(
                 Math.max(profile.daily?.best.wpm ?? 0, you.wpm),
-              )} WPM. Come back tomorrow for a new one!`,
+              )} WPM. ${boardNote ?? ''} Come back tomorrow for a new one!`,
             }
           : null;
     return (

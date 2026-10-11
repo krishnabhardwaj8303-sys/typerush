@@ -289,6 +289,14 @@ describe('public matchmaking', () => {
     const board = await fetch(`${url}/api/leaderboard`).then((r) => r.json());
     expect(board.entries.length).toBeGreaterThanOrEqual(2);
     expect(board.entries[0].score).toBeGreaterThanOrEqual(board.entries[1].score);
+    // ...and are stored for the permanent boards (saved a moment after the race ends).
+    let stored = 0;
+    for (let i = 0; i < 30 && stored < 2; i++) {
+      const board2 = await fetch(`${url}/api/board?scope=public`).then((r) => r.json());
+      stored = board2.entries.length;
+      if (stored < 2) await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(stored).toBeGreaterThanOrEqual(2);
     // Rematch is not available for public rooms.
     expect((await a.call('room:rematch')).ok).toBe(false);
   }, 40000);

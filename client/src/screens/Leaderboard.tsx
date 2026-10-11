@@ -2,99 +2,141 @@ import { useEffect, useState } from 'react';
 import { DIFFICULTIES, DIFFICULTY_LABEL, type Difficulty } from '@typerush/shared';
 import { TopBar } from '../components/TopBar';
 import { useProfile } from '../lib/ProfileContext';
-import { BADGES } from '../lib/rewards';
+import { fetchBoard, type BoardData, type BoardScope } from '../lib/cloud';
+import { BADGES, dayKey } from '../lib/rewards';
 import { serverUrl } from '../net/OnlineContext';
 import type { Go } from '../routes';
-
-interface OnlineEntry {
-  name: string;
-  wpm: number;
-  accuracy: number;
-  score: number;
-  difficulty: Difficulty;
-  at: number;
-}
 
 type Remote =
   | { state: 'loading' }
   | { state: 'error'; message: string }
-  | { state: 'ready'; entries: OnlineEntry[]; note: string };
+  | { state: 'ready'; data: BoardData };
+
+const SCOPES: { id: BoardScope; label: string }[] = [
+  { id: 'daily', label: 'Daily Challenge' },
+  { id: 'weekly', label: 'This week' },
+  { id: 'alltime', label: 'All time' },
+  { id: 'public', label: 'Public matches' },
+];
 
 function OnlineBoard() {
+  const { profile } = useProfile();
+  const [scope, setScope] = useState<BoardScope>('daily');
+  const [difficulty, setDifficulty] = useState<'all' | Difficulty>('all');
   const [remote, setRemote] = useState<Remote>({ state: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const token = profile.account.linked ? profile.playerToken : null;
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 6000);
+    let cancelled = false;
     setRemote({ state: 'loading' });
-    fetch(`${serverUrl()}/api/leaderboard`, { signal: controller.signal })
-      .then((r) => {
-        if (!r.ok) throw new Error(`Server answered ${r.status}`);
-        return r.json() as Promise<{ entries: OnlineEntry[]; note?: string }>;
-      })
-      .then((data) => setRemote({ state: 'ready', entries: data.entries ?? [], note: data.note ?? '' }))
-      .catch(() =>
-        setRemote({
-          state: 'error',
-          message: `The online board could not be loaded from ${serverUrl()}. The multiplayer server may be offline or waking up (free hosts sleep when idle).`,
-        }),
-      )
-      .finally(() => window.clearTimeout(timer));
+    fetchBoard(scope, {
+      token,
+      difficulty: difficulty === 'all' ? undefined : difficulty,
+      day: scope === 'daily' ? dayKey() : undefined,
+    }).then((res) => {
+      if (cancelled) return;
+      setRemote(
+        res.ok
+          ? { state: 'ready', data: res.data }
+          : { state: 'error', message: `The leaderboard could not be loaded from ${serverUrl()}. ${res.error}` },
+      );
+    });
     return () => {
-      controller.abort();
-      window.clearTimeout(timer);
+      cancelled = true;
     };
-  }, [attempt]);
+  }, [scope, difficulty, token, attempt]);
 
-  if (remote.state === 'loading') return <p className="muted center" role="status">Loading the online hall of fame...</p>;
-  if (remote.state === 'error') {
-    return (
-      <div className="empty">
-        <p>{remote.message}</p>
-        <button className="btn" onClick={() => setAttempt((a) => a + 1)}>
-          Try again
-        </button>
-      </div>
-    );
-  }
-  if (remote.entries.length === 0) {
-    return (
-      <div className="empty">
-        <p>No online results yet. Win a public match to put your name here!</p>
-      </div>
-    );
-  }
   return (
     <>
-      <div className="table-wrap">
-        <table className="results-table">
-          <caption className="sr-only">Online hall of fame</caption>
-          <thead>
-            <tr>
-              <th scope="col">#</th>
-              <th scope="col">Racer</th>
-              <th scope="col">Points</th>
-              <th scope="col">WPM</th>
-              <th scope="col">Accuracy</th>
-              <th scope="col">Level</th>
-            </tr>
-          </thead>
-          <tbody>
-            {remote.entries.map((e, i) => (
-              <tr key={`${e.at}-${i}`}>
-                <th scope="row">{i + 1}</th>
-                <td>{e.name}</td>
-                <td>{e.score}</td>
-                <td>{e.wpm.toFixed(0)}</td>
-                <td>{e.accuracy.toFixed(1)}%</td>
-                <td>{DIFFICULTY_LABEL[e.difficulty] ?? e.difficulty}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="tabs" role="tablist" aria-label="Board">
+        {SCOPES.map((s) => (
+          <button
+            key={s.id}
+            role="tab"
+            aria-selected={scope === s.id}
+            className={scope === s.id ? 'tab tab-on' : 'tab'}
+            onClick={() => setScope(s.id)}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
-      {remote.note && <p className="muted center">{remote.note}</p>}
+      <label className="field board-filter">
+        <span>Difficulty</span>
+        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as 'all' | Difficulty)}>
+          <option value="all">All</option>
+          {DIFFICULTIES.map((d) => (
+            <option key={d} value={d}>
+              {DIFFICULTY_LABEL[d]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {remote.state === 'loading' && (
+        <p className="muted center" role="status">
+          Loading the leaderboard...
+        </p>
+      )}
+      {remote.state === 'error' && (
+        <div className="empty">
+          <p>{remote.message}</p>
+          <button className="btn" onClick={() => setAttempt((a) => a + 1)}>
+            Try again
+          </button>
+        </div>
+      )}
+      {remote.state === 'ready' && remote.data.entries.length === 0 && (
+        <div className="empty">
+          <p>
+            {scope === 'daily'
+              ? 'Nobody has finished today\'s Daily Challenge yet. Be the first!'
+              : 'No results here yet. Win a public match or play the Daily Challenge to put your name here!'}
+          </p>
+          {!profile.account.linked && <p className="muted">Create an account (Menu &gt; Account &amp; backup) to appear on the boards.</p>}
+        </div>
+      )}
+      {remote.state === 'ready' && remote.data.entries.length > 0 && (
+        <>
+          {remote.data.me && (
+            <p className="banner banner-info">
+              Your rank: <strong>#{remote.data.me.rank}</strong> with {remote.data.me.score} points ({remote.data.me.wpm.toFixed(0)} WPM).
+            </p>
+          )}
+          <div className="table-wrap">
+            <table className="results-table">
+              <caption className="sr-only">Online leaderboard</caption>
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Racer</th>
+                  <th scope="col">Points</th>
+                  <th scope="col">WPM</th>
+                  <th scope="col">Accuracy</th>
+                  <th scope="col">Level</th>
+                </tr>
+              </thead>
+              <tbody>
+                {remote.data.entries.map((e) => (
+                  <tr key={`${e.rank}-${e.at}`} className={remote.data.me?.rank === e.rank ? 'row-you' : ''}>
+                    <th scope="row">{e.rank}</th>
+                    <td>
+                      {e.name}
+                      {e.account ? <span className="tag">account</span> : null}
+                    </td>
+                    <td>{e.score}</td>
+                    <td>{e.wpm.toFixed(0)}</td>
+                    <td>{e.accuracy.toFixed(1)}%</td>
+                    <td>{DIFFICULTY_LABEL[e.difficulty as Difficulty] ?? e.difficulty}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted center">{remote.data.note}</p>
+        </>
+      )}
     </>
   );
 }

@@ -10,6 +10,7 @@ export type Route =
   | { name: 'friends'; code?: string }
   | { name: 'match'; difficulty?: Difficulty }
   | { name: 'leaderboard' }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'account' };
 
 export type Go = (route: Route) => void;

@@ -18,6 +18,8 @@ export function testConfig(overrides: Partial<ServerConfig> = {}): ServerConfig 
     tickMs: 30,
     sweepMs: 60000,
     leaderboardFile: null,
+    databaseUrl: null,
+    databaseSsl: false,
     ...overrides,
   };
 }

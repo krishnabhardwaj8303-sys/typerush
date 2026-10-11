@@ -1,7 +1,7 @@
 // Coins, streaks, badges, the Daily Challenge and the shop rules.
 // Everything here is a pure function of (profile, input), so it is easy to test.
 
-import { CARS, quickRaceChars, quickRaceOpponents, type CarId, type Difficulty } from '@typerush/shared';
+import { CARS, dailyInfo, quickRaceOpponents, type CarId, type DailyInfo, type Difficulty } from '@typerush/shared';
 import { SKINS, TRAILS, type SkinId, type TrailId } from './shop';
 import { recordRace, totalStars, type Profile, type RaceRecord, type Streak } from './storage';
 
@@ -42,29 +42,7 @@ export function activeStreak(streak: Streak, today: string): number {
 
 // ---------------------------------------------------------------- daily challenge
 
-export interface DailyInfo {
-  day: string;
-  difficulty: Difficulty;
-  chars: number;
-  seed: number;
-}
-
-const DAILY_BY_WEEKDAY: Difficulty[] = ['medium', 'easy', 'medium', 'hard', 'medium', 'hard', 'expert'];
-
-function hashDay(day: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < day.length; i++) {
-    h ^= day.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-/** Everyone who plays on the same day gets the same text, difficulty and track. */
-export function dailyInfo(day: string = dayKey()): DailyInfo {
-  const difficulty = DAILY_BY_WEEKDAY[parseDay(day).getDay()];
-  return { day, difficulty, chars: quickRaceChars(difficulty), seed: hashDay(`typerush-${day}`) };
-}
+export { dailyInfo, type DailyInfo };
 
 export function dailyOpponents(difficulty: Difficulty) {
   return quickRaceOpponents(difficulty, 3).map((bot, i) => ({ ...bot, id: `daily-${difficulty}-${i}` }));

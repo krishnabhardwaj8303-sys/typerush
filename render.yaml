@@ -15,3 +15,5 @@ services:
         value: 22
       - key: CLIENT_ORIGINS
         sync: false # you enter your frontend URL (https://...) in the dashboard
+      - key: DATABASE_URL
+        sync: false # optional: PostgreSQL connection string for accounts and permanent leaderboards

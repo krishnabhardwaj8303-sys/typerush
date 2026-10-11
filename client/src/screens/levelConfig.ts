@@ -1,5 +1,5 @@
 import { quickRaceChars, quickRaceOpponents, levelsFor, type Difficulty, type LevelDef } from '@typerush/shared';
-import { dailyInfo, dailyOpponents } from '../lib/rewards';
+import { dailyInfo, dailyOpponents, dayKey } from '../lib/rewards';
 import type { SoloConfig } from './SoloRace';
 
 export function levelToConfig(level: LevelDef, seed: number): SoloConfig {
@@ -39,7 +39,7 @@ export function nextLevelOf(levelId: number): LevelDef | undefined {
 }
 
 /** Today's Daily Challenge: same text, difficulty, track and opponents for everybody. */
-export function dailyConfig(day?: string): SoloConfig {
+export function dailyConfig(day: string = dayKey()): SoloConfig {
   const info = dailyInfo(day);
   return {
     mode: 'daily',
@@ -50,5 +50,6 @@ export function dailyConfig(day?: string): SoloConfig {
     opponents: dailyOpponents(info.difficulty),
     seed: info.seed,
     title: `Daily Challenge (${info.day})`,
+    day: info.day,
   };
 }
