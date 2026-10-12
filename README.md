@@ -146,3 +146,4 @@ still keep your own text packs, brand and hosting private.
 - **Daily Challenge link**: *Copy today's challenge link* on the home screen gives `https://<site>/?challenge=daily`, which opens today's race directly.
 - **AI cars are labelled "(AI)"** in practice races, and public matches never contain bots.
 - **Skins and trails are visible to other players** in friends rooms and public matches. The server only checks that the ids exist and relays them; it does not know what you own, so they are cosmetic only and never affect speed or scores.
+- **Race view**: the race screen now shows a straight multi-lane **highway** by default (your car stays on screen, the others move ahead or behind by the real gap, with a speedometer and a finish gantry). Settings > Race view switches back to the old **winding track**. Each of the 10 track themes has its own highway scenery (city sunset, desert, pine forest, beach, snow, neon night, mountains, volcano, rainy harbour, moon).

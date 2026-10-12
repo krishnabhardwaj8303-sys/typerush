@@ -25,10 +25,12 @@ export function RaceCanvas({ stateRef, lanes, label }: Props) {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       width = Math.max(280, Math.round(rect.width));
       // Big race area: tall enough for several rows of winding road and U-turns.
-      const ratio = width < 560 ? 1.0 : width < 820 ? 0.7 : 0.54;
-      const byWidth = Math.min(Math.max(width * ratio, 320), 540);
+      // The highway view is a wide, shorter strip; the winding track needs more height for its U-turns.
+      const highway = stateRef.current.view !== 'track';
+      const ratio = highway ? (width < 560 ? 0.85 : width < 820 ? 0.5 : 0.42) : width < 560 ? 1.0 : width < 820 ? 0.7 : 0.54;
+      const byWidth = Math.min(Math.max(width * ratio, highway ? 220 : 320), 540);
       // Never taller than about half of the window, so the typing line stays on screen.
-      const cap = Math.max(320, Math.round(window.innerHeight * 0.56));
+      const cap = Math.max(highway ? 220 : 320, Math.round(window.innerHeight * 0.56));
       height = Math.round(Math.min(byWidth, cap));
       canvas.style.height = `${height}px`;
       canvas.width = Math.round(width * dpr);

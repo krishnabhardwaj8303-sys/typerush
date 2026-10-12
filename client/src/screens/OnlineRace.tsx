@@ -220,6 +220,8 @@ export function OnlineRace({ go }: { go: Go }) {
 
       const state = renderRef.current;
       state.reduceMotion = reduceMotion;
+      state.view = profile.settings.raceView;
+      state.wpm = session.liveWpm(raceMs);
       state.time += dt;
       state.cars = cars;
       state.scroll += (racingNow ? 80 + md.speed * 700 : 30) * dt;
@@ -259,7 +261,7 @@ export function OnlineRace({ go }: { go: Go }) {
       cancelAnimationFrame(raf);
       audio.stopEngine();
     };
-  }, [canType, online, profile.car, profile.name, profile.skin, profile.trail, reduceMotion, session, text.length]);
+  }, [canType, online, profile.car, profile.name, profile.skin, profile.trail, profile.settings.raceView, reduceMotion, session, text.length]);
 
   // Save the validated result to the local profile exactly once.
   const results = online.results;

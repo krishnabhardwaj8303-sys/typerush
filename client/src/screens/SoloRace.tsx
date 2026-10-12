@@ -137,6 +137,7 @@ function botSeed(seed: number, index: number): number {
 export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
   const { profile, addRace } = useProfile();
   const reduceMotion = profile.settings.reduceMotion;
+  const raceView = profile.settings.raceView;
 
   const text = useMemo(
     () => generateText(config.difficulty, config.chars, config.seed, config.tier, config.lang ?? 'en'),
@@ -363,6 +364,8 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
       const state = renderRef.current;
       const racing = phase === 'racing' || phase === 'finishing' || phase === 'countdown';
       state.reduceMotion = reduceMotion;
+      state.view = raceView;
+      state.wpm = session.liveWpm(raceMsRef.current);
       state.time += dt;
       state.cars = buildCars(dt);
       const youCar = state.cars[state.cars.length - 1];
@@ -406,7 +409,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [outcome, profile.car, profile.name, profile.skin, profile.trail, reduceMotion, setPhase, text.length]);
+  }, [outcome, profile.car, profile.name, profile.skin, profile.trail, reduceMotion, raceView, setPhase, text.length]);
 
   // Pause with Escape or when the tab is hidden; always silence the engine on exit.
   useEffect(() => {

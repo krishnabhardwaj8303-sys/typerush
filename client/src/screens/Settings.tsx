@@ -16,6 +16,23 @@ export function Settings({ go }: { go: Go }) {
       <TopBar title="Settings" onBack={() => go({ name: 'home' })} backLabel="Menu" />
 
       <section className="panel">
+        <h2 className="section-title">Race view</h2>
+        <div className="segmented" role="radiogroup" aria-label="Race view">
+          {(['highway', 'track'] as const).map((v) => (
+            <button
+              key={v}
+              role="radio"
+              aria-checked={s.raceView === v}
+              className={s.raceView === v ? 'seg seg-on' : 'seg'}
+              onClick={() => setSettings({ raceView: v })}
+            >
+              {v === 'highway' ? 'Highway' : 'Winding track'}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
         <h2 className="section-title">Sound</h2>
         <label className="check">
           <input

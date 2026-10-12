@@ -17,6 +17,8 @@ export interface Settings {
   reduceMotion: boolean;
   /** Size of the moving typing line: m = normal, l = large, xl = extra large. */
   textSize: 'm' | 'l' | 'xl';
+  /** Race screen look: straight multi-lane highway or the winding track. */
+  raceView: 'highway' | 'track';
 }
 
 export type RaceMode = 'level' | 'quick' | 'friends' | 'public' | 'daily';
@@ -118,7 +120,7 @@ export function defaultProfile(): Profile {
     races: 0,
     wins: 0,
     history: [],
-    settings: { musicOn: true, sfxOn: true, musicVolume: 0.5, sfxVolume: 0.7, reduceMotion: false, textSize: 'm' },
+    settings: { musicOn: true, sfxOn: true, musicVolume: 0.5, sfxVolume: 0.7, reduceMotion: false, textSize: 'm', raceView: 'highway' },
     coins: 0,
     lifetimeCoins: 0,
     streak: { count: 0, best: 0, lastDay: null },
@@ -250,6 +252,7 @@ export function parseProfile(raw: string | null): Profile {
         sfxVolume: num(s.sfxVolume, base.settings.sfxVolume, 0, 1),
         reduceMotion: typeof s.reduceMotion === 'boolean' ? s.reduceMotion : base.settings.reduceMotion,
         textSize: s.textSize === 'l' || s.textSize === 'xl' ? s.textSize : 'm',
+        raceView: s.raceView === 'track' ? 'track' : 'highway',
       },
       coins: num(data.coins, 0, 0, 1e9),
       lifetimeCoins: num(data.lifetimeCoins, 0, 0, 1e9),

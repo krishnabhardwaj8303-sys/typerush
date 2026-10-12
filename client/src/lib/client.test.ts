@@ -91,3 +91,11 @@ describe('profile storage', () => {
     expect(p.history).toHaveLength(2);
   });
 });
+
+describe('race view setting', () => {
+  it('defaults to the highway view and only accepts known values', () => {
+    expect(parseProfile(null).settings.raceView).toBe('highway');
+    expect(parseProfile(JSON.stringify({ settings: { raceView: 'track' } })).settings.raceView).toBe('track');
+    expect(parseProfile(JSON.stringify({ settings: { raceView: 'spaceship' } })).settings.raceView).toBe('highway');
+  });
+});

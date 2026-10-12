@@ -9,6 +9,7 @@ import {
   type Rng,
 } from '@typerush/shared';
 import type { SkinId, TrailId } from '../lib/shop';
+import { drawHighway } from './highwayRenderer';
 
 export interface RenderCar {
   id: string;
@@ -38,13 +39,17 @@ export interface RenderState {
   reduceMotion: boolean;
   /** Which track to draw. Leave undefined for a default track. */
   track?: TrackSpec;
+  /** 'highway' (default look) or the winding 'track'. */
+  view?: 'highway' | 'track';
+  /** Live typing speed for the speedometer (highway view). */
+  wpm?: number;
 }
 
 export const emptyRenderState = (): RenderState => ({ cars: [], time: 0, scroll: 0, reduceMotion: false });
 
 const CAR_BY_ID = new Map<CarId, CarDef>(CARS.map((c) => [c.id, c]));
 
-function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   const radius = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
@@ -59,7 +64,7 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   ctx.closePath();
 }
 
-function hash(n: number): number {
+export function hash(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
 }
@@ -414,7 +419,7 @@ type Decor =
   | 'lava'
   | 'container'
   | 'crater';
-type Weather = 'none' | 'snow' | 'rain' | 'embers';
+export type Weather = 'none' | 'snow' | 'rain' | 'embers';
 
 interface Theme {
   ground: string;
@@ -902,7 +907,7 @@ function getScene(spec: TrackSpec, w: number, h: number, lanes: number, dpr: num
   return sceneCache;
 }
 
-function drawWeather(c: CanvasRenderingContext2D, weather: Weather, w: number, h: number, t: number) {
+export function drawWeather(c: CanvasRenderingContext2D, weather: Weather, w: number, h: number, t: number) {
   if (weather === 'none') return;
   c.save();
   if (weather === 'snow') {
@@ -938,7 +943,7 @@ function drawWeather(c: CanvasRenderingContext2D, weather: Weather, w: number, h
 
 // ---------------------------------------------------------------- top-down cars
 
-function drawCarTop(
+export function drawCarTop(
   c: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -1026,6 +1031,10 @@ function drawCarTop(
 
 /** Draws one complete frame. Call every animation frame. */
 export function drawRace(ctx: CanvasRenderingContext2D, w: number, h: number, state: RenderState) {
+  if (state.view !== 'track') {
+    drawHighway(ctx, w, h, state);
+    return;
+  }
   const lanes = Math.max(2, state.cars.length);
   const spec = state.track ?? DEFAULT_TRACK;
   const dpr = typeof ctx.getTransform === 'function' ? ctx.getTransform().a || 1 : 1;
@@ -1088,7 +1097,7 @@ export function drawRace(ctx: CanvasRenderingContext2D, w: number, h: number, st
   }
 }
 
-function drawTag(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, you: boolean, fontPx: number) {
+export function drawTag(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, you: boolean, fontPx: number) {
   ctx.font = `700 ${fontPx}px system-ui, "Segoe UI", sans-serif`;
   const padX = 6;
   const tw = ctx.measureText(text).width + padX * 2;
