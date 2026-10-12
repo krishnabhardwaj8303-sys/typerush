@@ -22,7 +22,20 @@ class GameAudio {
   private musicWanted = false;
   private step = 0;
   private nextStepTime = 0;
-  private engine: { osc: OscillatorNode; osc2: OscillatorNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
+  private engine: {
+    saw: OscillatorNode;
+    sq: OscillatorNode;
+    sub: OscillatorNode;
+    lfo: OscillatorNode;
+    noise: AudioBufferSourceNode;
+    gain: GainNode;
+    filter: BiquadFilterNode;
+    noiseFilter: BiquadFilterNode;
+    noiseGain: GainNode;
+    gear: number;
+  } | null = null;
+  private boostUntil = 0;
+  private noiseBuffer: AudioBuffer | null = null;
 
   /** Must be called from a user gesture (click / keypress) at least once. */
   unlock(): void {
@@ -117,45 +130,140 @@ class GameAudio {
 
   // ------------------------------------------------------------------ engine
 
-  startEngine(): void {
-    if (!this.ctx || !this.sfxGain || this.engine || !this.settings.sfxOn) return;
-    const osc = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    const filter = this.ctx.createBiquadFilter();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc2.type = 'square';
-    osc.frequency.value = 55;
-    osc2.frequency.value = 55.7;
-    filter.type = 'lowpass';
-    filter.frequency.value = 300;
-    gain.gain.value = 0.0001;
-    osc.connect(filter);
-    osc2.connect(filter);
-    filter.connect(gain).connect(this.sfxGain);
-    osc.start();
-    osc2.start();
-    this.engine = { osc, osc2, gain, filter };
+  private getNoise(): AudioBuffer | null {
+    if (!this.ctx) return null;
+    if (!this.noiseBuffer) {
+      const len = Math.floor(this.ctx.sampleRate * 1.5);
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      this.noiseBuffer = buf;
+    }
+    return this.noiseBuffer;
   }
 
-  /** speed: 0..1 */
+  /** A synthesised petrol engine: three layered oscillators, a rumble (cylinder firing) and an exhaust rasp. */
+  startEngine(): void {
+    if (!this.ctx || !this.sfxGain || this.engine || !this.settings.sfxOn) return;
+    const ctx = this.ctx;
+    const noiseBuf = this.getNoise();
+    const saw = ctx.createOscillator();
+    const sq = ctx.createOscillator();
+    const sub = ctx.createOscillator();
+    saw.type = 'sawtooth';
+    sq.type = 'square';
+    sub.type = 'sine';
+    saw.frequency.value = 70;
+    sq.frequency.value = 140;
+    sub.frequency.value = 35;
+    const mix = ctx.createGain();
+    const sawG = ctx.createGain();
+    const sqG = ctx.createGain();
+    const subG = ctx.createGain();
+    sawG.gain.value = 0.55;
+    sqG.gain.value = 0.18;
+    subG.gain.value = 0.7;
+    saw.connect(sawG).connect(mix);
+    sq.connect(sqG).connect(mix);
+    sub.connect(subG).connect(mix);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
+    filter.Q.value = 2;
+    // rumble: a slow oscillator wobbles the volume, like cylinders firing
+    const amp = ctx.createGain();
+    amp.gain.value = 0.75;
+    const lfo = ctx.createOscillator();
+    const lfoDepth = ctx.createGain();
+    lfo.type = 'triangle';
+    lfo.frequency.value = 22;
+    lfoDepth.gain.value = 0.25;
+    lfo.connect(lfoDepth).connect(amp.gain);
+    mix.connect(filter).connect(amp);
+    const gain = ctx.createGain();
+    gain.gain.value = 0.0001;
+    amp.connect(gain).connect(this.sfxGain);
+    // exhaust rasp
+    const noise = ctx.createBufferSource();
+    if (noiseBuf) noise.buffer = noiseBuf;
+    noise.loop = true;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 700;
+    noiseFilter.Q.value = 0.8;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.0001;
+    noise.connect(noiseFilter).connect(noiseGain).connect(this.sfxGain);
+    for (const node of [saw, sq, sub, lfo, noise]) node.start();
+    this.engine = { saw, sq, sub, lfo, noise, gain, filter, noiseFilter, noiseGain, gear: 0 };
+  }
+
+  /** speed: 0..1. Climbs through five "gears": the revs rise, drop at each shift and rise again. */
   setEngineSpeed(speed: number): void {
     if (!this.ctx || !this.engine) return;
+    const e = this.engine;
     const s = Math.min(1, Math.max(0, speed));
     const t = this.ctx.currentTime;
-    this.engine.osc.frequency.setTargetAtTime(55 + s * 110, t, 0.08);
-    this.engine.osc2.frequency.setTargetAtTime(55.7 + s * 111, t, 0.08);
-    this.engine.filter.frequency.setTargetAtTime(280 + s * 900, t, 0.08);
-    this.engine.gain.gain.setTargetAtTime(0.02 + s * 0.05, t, 0.1);
+    const edges = [0, 0.2, 0.42, 0.64, 0.84, 1.0001];
+    let gear = 0;
+    while (gear < 4 && s >= edges[gear + 1]) gear++;
+    const frac = (s - edges[gear]) / (edges[gear + 1] - edges[gear]);
+    const revs = 0.22 + 0.78 * Math.pow(Math.min(1, Math.max(0, frac)), 0.85);
+    const boosted = t < this.boostUntil;
+    const f = (52 + revs * 150 + gear * 6) * (boosted ? 1.05 : 1);
+    e.saw.frequency.setTargetAtTime(f, t, 0.04);
+    e.sq.frequency.setTargetAtTime(f * 2.01, t, 0.04);
+    e.sub.frequency.setTargetAtTime(f * 0.5, t, 0.04);
+    e.lfo.frequency.setTargetAtTime(14 + revs * 40, t, 0.06);
+    e.filter.frequency.setTargetAtTime(420 + revs * 2400 + s * 800, t, 0.05);
+    e.gain.gain.setTargetAtTime((0.09 + s * 0.14) * (boosted ? 1.3 : 1), t, 0.03);
+    e.noiseFilter.frequency.setTargetAtTime(500 + revs * 1800, t, 0.06);
+    e.noiseGain.gain.setTargetAtTime(0.008 + s * 0.06, t, 0.06);
+    if (gear > e.gear && s > 0.15) this.shiftPuff();
+    e.gear = gear;
+  }
+
+  /** A short throttle blip, call on every correct key so the engine answers your typing. */
+  rev(): void {
+    if (!this.ctx || !this.engine) return;
+    this.boostUntil = this.ctx.currentTime + 0.1;
+  }
+
+  /** The "psh" of a gear change. */
+  private shiftPuff(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const buf = this.getNoise();
+    if (!buf) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2200;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.16, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    src.connect(hp).connect(g).connect(this.sfxGain);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + 0.2);
+  }
+
+  /** The roar when the lights go green. */
+  launch(): void {
+    if (!this.ctx || !this.sfxGain || !this.settings.sfxOn) return;
+    this.tone(70, 0.9, 'sawtooth', 0.22, 0, 340);
+    this.tone(140, 0.9, 'square', 0.08, 0, 600);
+    this.shiftPuff();
   }
 
   stopEngine(): void {
     if (!this.engine || !this.ctx) return;
-    const { osc, osc2, gain } = this.engine;
+    const { saw, sq, sub, lfo, noise, gain, noiseGain } = this.engine;
     const t = this.ctx.currentTime;
     gain.gain.setTargetAtTime(0.0001, t, 0.05);
-    osc.stop(t + 0.3);
-    osc2.stop(t + 0.3);
+    noiseGain.gain.setTargetAtTime(0.0001, t, 0.05);
+    for (const node of [saw, sq, sub, lfo, noise]) node.stop(t + 0.3);
     this.engine = null;
   }
 

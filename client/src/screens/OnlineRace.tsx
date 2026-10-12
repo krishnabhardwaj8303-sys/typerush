@@ -92,6 +92,7 @@ export function OnlineRace({ go }: { go: Go }) {
         return;
       }
       audio.key();
+      audio.rev();
       recentKeys.current.push(performance.now());
       setPos(session.pos);
       dirty.current = true;
@@ -143,6 +144,7 @@ export function OnlineRace({ go }: { go: Go }) {
           if (msLeft > -1500) {
             // Only celebrate GO if we were actually here for the start (not after a reconnect).
             audio.countdownBeep(true);
+            audio.launch();
             setCountdown(0);
             goUntil.current = now + 700;
           }

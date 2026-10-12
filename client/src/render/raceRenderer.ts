@@ -73,7 +73,7 @@ export function hash(n: number): number {
 // ---------------------------------------------------------------- skins and trails
 
 /** Paints a skin over a car body rectangle (the car's long side is horizontal in both views). */
-function paintSkin(c: CanvasRenderingContext2D, skin: SkinId | undefined, x: number, y: number, w: number, h: number, r: number) {
+export function paintSkin(c: CanvasRenderingContext2D, skin: SkinId | undefined, x: number, y: number, w: number, h: number, r: number) {
   if (!skin || skin === 'plain') return;
   c.save();
   rr(c, x, y, w, h, r);

@@ -1,5 +1,6 @@
 import { CARS, type CarDef, type CarId } from '@typerush/shared';
-import { drawCarTop, drawTag, drawTrail, drawWeather, hash, rr, type RenderState, type Weather } from './raceRenderer';
+import { drawTag, drawTrail, drawWeather, hash, paintSkin, rr, type RenderState, type Weather } from './raceRenderer';
+import type { SkinId } from '../lib/shop';
 
 // "Highway" race view: a straight multi-lane road seen from slightly above. The camera follows your car, so the
 // other cars slide ahead of and behind you according to the real gap in progress. Scenery scrolls at different
@@ -196,6 +197,312 @@ function drawGauge(c: CanvasRenderingContext2D, w: number, h: number, wpm: numbe
   c.restore();
 }
 
+
+// ------------------------------------------------------------------ 3D-looking car (side view, lit from above)
+
+function shade(hex: string, amount: number): string {
+  // amount > 0 mixes towards white, < 0 towards black
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) =>
+    Math.round(amount >= 0 ? v + (255 - v) * amount : v * (1 + amount)),
+  );
+  return `rgb(${ch[0]},${ch[1]},${ch[2]})`;
+}
+
+type Pt2 = [number, number];
+const CABINS: Record<string, Pt2[]> = {
+  sedan: [[-0.29, -0.228], [-0.19, -0.338], [0.12, -0.338], [0.27, -0.228]],
+  coupe: [[-0.25, -0.228], [-0.1, -0.328], [0.1, -0.328], [0.3, -0.228]],
+  hatch: [[-0.32, -0.228], [-0.3, -0.342], [0.1, -0.342], [0.26, -0.228]],
+};
+
+interface Car3D {
+  speed: number;
+  time: number;
+  skin?: SkinId;
+  wheelSpin: number;
+}
+
+/** Draws a car facing right. (x, groundY) is the middle of the car where the tyres touch the road; L is its length. */
+function drawCar3D(c: CanvasRenderingContext2D, x: number, groundY: number, L: number, def: CarDef, o: Car3D) {
+  const u = L;
+  c.save();
+  c.translate(x, groundY);
+
+  // headlight beam along the road
+  const beam = c.createLinearGradient(0.46 * u, 0, 1.3 * u, 0);
+  beam.addColorStop(0, 'rgba(255,247,194,0.30)');
+  beam.addColorStop(1, 'rgba(255,247,194,0)');
+  c.fillStyle = beam;
+  c.beginPath();
+  c.moveTo(0.46 * u, -0.15 * u);
+  c.lineTo(1.3 * u, -0.28 * u);
+  c.lineTo(1.3 * u, 0.04 * u);
+  c.lineTo(0.46 * u, -0.1 * u);
+  c.closePath();
+  c.fill();
+
+  // nitro flame out of the exhaust
+  if (o.speed > 0.6) {
+    const flame = (o.speed - 0.6) / 0.4;
+    const fl = u * (0.18 + flame * 0.34) * (0.85 + 0.15 * Math.sin(o.time * 45));
+    const g = c.createLinearGradient(-0.5 * u, 0, -0.5 * u - fl, 0);
+    g.addColorStop(0, 'rgba(255,240,150,0.95)');
+    g.addColorStop(0.5, 'rgba(255,140,40,0.75)');
+    g.addColorStop(1, 'rgba(255,60,120,0)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(-0.5 * u, -0.105 * u);
+    c.lineTo(-0.5 * u - fl, -0.088 * u);
+    c.lineTo(-0.5 * u, -0.07 * u);
+    c.closePath();
+    c.fill();
+  }
+
+  // body silhouette
+  const body = new Path2D();
+  body.moveTo(-0.5 * u, -0.07 * u);
+  body.lineTo(-0.5 * u, -0.17 * u);
+  body.quadraticCurveTo(-0.5 * u, -0.215 * u, -0.45 * u, -0.222 * u);
+  body.lineTo(-0.3 * u, -0.228 * u);
+  body.lineTo(0.2 * u, -0.234 * u);
+  body.quadraticCurveTo(0.36 * u, -0.226 * u, 0.46 * u, -0.17 * u);
+  body.quadraticCurveTo(0.5 * u, -0.15 * u, 0.5 * u, -0.1 * u);
+  body.lineTo(0.5 * u, -0.07 * u);
+  body.quadraticCurveTo(0.5 * u, -0.048 * u, 0.46 * u, -0.048 * u);
+  body.lineTo(-0.46 * u, -0.048 * u);
+  body.quadraticCurveTo(-0.5 * u, -0.048 * u, -0.5 * u, -0.07 * u);
+  body.closePath();
+
+  // cabin (roof + glass) sits behind the body outline so the door line stays clean
+  const cab = CABINS[def.shape] ?? CABINS.sedan;
+  const roof = new Path2D();
+  roof.moveTo(cab[0][0] * u, cab[0][1] * u);
+  for (let i = 1; i < cab.length; i++) roof.lineTo(cab[i][0] * u, cab[i][1] * u);
+  roof.closePath();
+  c.fillStyle = shade(def.body, -0.25);
+  c.fill(roof);
+
+  // glass: the roof polygon pulled in towards its centre
+  const cx0 = cab.reduce((a, p) => a + p[0], 0) / cab.length;
+  const cy0 = cab.reduce((a, p) => a + p[1], 0) / cab.length;
+  const glass = new Path2D();
+  cab.forEach((p, i) => {
+    const gx = (cx0 + (p[0] - cx0) * 0.84) * u;
+    const gy = (cy0 + (p[1] - cy0) * 0.8 + (i === 0 || i === 3 ? -0.002 : 0.004)) * u;
+    if (i === 0) glass.moveTo(gx, gy);
+    else glass.lineTo(gx, gy);
+  });
+  glass.closePath();
+  const gg = c.createLinearGradient(0, -0.34 * u, 0, -0.23 * u);
+  gg.addColorStop(0, '#d7efff');
+  gg.addColorStop(0.55, '#6aa9e6');
+  gg.addColorStop(1, '#1f3d6b');
+  c.fillStyle = gg;
+  c.fill(glass);
+  c.save();
+  c.clip(glass);
+  c.fillStyle = 'rgba(255,255,255,0.38)';
+  c.beginPath();
+  c.moveTo(-0.2 * u, -0.34 * u);
+  c.lineTo(-0.1 * u, -0.34 * u);
+  c.lineTo(-0.2 * u, -0.226 * u);
+  c.lineTo(-0.3 * u, -0.226 * u);
+  c.closePath();
+  c.fill();
+  c.fillRect(0.0 * u, -0.34 * u, 0.025 * u, 0.12 * u); // pillar
+  c.fillStyle = shade(def.body, -0.25);
+  c.fillRect(-0.03 * u, -0.34 * u, 0.03 * u, 0.12 * u);
+  c.restore();
+
+  // body paint with top light and a dark underside
+  const bg = c.createLinearGradient(0, -0.234 * u, 0, -0.048 * u);
+  bg.addColorStop(0, shade(def.body, 0.38));
+  bg.addColorStop(0.25, shade(def.body, 0.05));
+  bg.addColorStop(0.75, shade(def.body, -0.25));
+  bg.addColorStop(1, shade(def.body, -0.55));
+  c.fillStyle = bg;
+  c.fill(body);
+
+  c.save();
+  c.clip(body);
+  paintSkin(c, o.skin, -0.5 * u, -0.234 * u, u, 0.186 * u, 0.04 * u);
+  // accent stripe, door shut-lines, handles
+  c.fillStyle = def.accent;
+  c.fillRect(-0.5 * u, -0.142 * u, u, 0.02 * u);
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.fillRect(-0.1 * u, -0.226 * u, 0.006 * u, 0.17 * u);
+  c.fillRect(0.14 * u, -0.226 * u, 0.006 * u, 0.17 * u);
+  c.fillStyle = 'rgba(255,255,255,0.55)';
+  c.fillRect(-0.075 * u, -0.2 * u, 0.04 * u, 0.008 * u);
+  c.fillRect(0.17 * u, -0.2 * u, 0.04 * u, 0.008 * u);
+  // roof-line highlight and bottom shade
+  c.fillStyle = 'rgba(255,255,255,0.45)';
+  c.fillRect(-0.4 * u, -0.226 * u, 0.7 * u, 0.006 * u);
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.fillRect(-0.5 * u, -0.07 * u, u, 0.025 * u);
+  // wheel arches
+  c.fillStyle = '#080a12';
+  for (const wx of [-0.3, 0.3]) {
+    c.beginPath();
+    c.arc(wx * u, -0.088 * u, 0.112 * u, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+
+  // side mirror, spoiler (coupe), lights, exhaust pipe
+  c.fillStyle = shade(def.body, -0.3);
+  rr(c, 0.2 * u, -0.25 * u, 0.04 * u, 0.025 * u, 0.01 * u);
+  c.fill();
+  if (def.shape === 'coupe') {
+    c.fillStyle = shade(def.body, -0.4);
+    c.fillRect(-0.48 * u, -0.262 * u, 0.012 * u, 0.04 * u);
+    rr(c, -0.52 * u, -0.27 * u, 0.15 * u, 0.018 * u, 0.008 * u);
+    c.fill();
+  }
+  c.fillStyle = '#fff7c2';
+  rr(c, 0.455 * u, -0.168 * u, 0.045 * u, 0.034 * u, 0.012 * u);
+  c.fill();
+  c.fillStyle = '#ff4d4d';
+  rr(c, -0.502 * u, -0.178 * u, 0.026 * u, 0.04 * u, 0.008 * u);
+  c.fill();
+  c.fillStyle = '#2a2d38';
+  rr(c, -0.528 * u, -0.103 * u, 0.045 * u, 0.026 * u, 0.012 * u);
+  c.fill();
+
+  // wheels
+  const rw = 0.088 * u;
+  for (const wx of [-0.3, 0.3]) {
+    const wcx = wx * u;
+    const wcy = -rw;
+    c.fillStyle = '#0c0e17';
+    c.beginPath();
+    c.arc(wcx, wcy, rw, 0, Math.PI * 2);
+    c.fill();
+    const rim = c.createRadialGradient(wcx - rw * 0.2, wcy - rw * 0.2, 1, wcx, wcy, rw * 0.64);
+    rim.addColorStop(0, '#f4f6ff');
+    rim.addColorStop(1, '#8b93a8');
+    c.fillStyle = rim;
+    c.beginPath();
+    c.arc(wcx, wcy, rw * 0.64, 0, Math.PI * 2);
+    c.fill();
+    if (o.speed < 0.55) {
+      c.strokeStyle = '#3a4054';
+      c.lineWidth = Math.max(1, rw * 0.11);
+      for (let k = 0; k < 5; k++) {
+        const a = o.wheelSpin + (k * Math.PI * 2) / 5;
+        c.beginPath();
+        c.moveTo(wcx, wcy);
+        c.lineTo(wcx + Math.cos(a) * rw * 0.6, wcy + Math.sin(a) * rw * 0.6);
+        c.stroke();
+      }
+    } else {
+      // too fast to see spokes: a soft blurred disc
+      c.fillStyle = 'rgba(40,46,66,0.35)';
+      c.beginPath();
+      c.arc(wcx, wcy, rw * 0.62, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.fillStyle = '#2a2d38';
+    c.beginPath();
+    c.arc(wcx, wcy, rw * 0.14, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+}
+
+// ------------------------------------------------------------------ exhaust smoke
+
+interface Puff {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  age: number;
+  life: number;
+  size: number;
+  grow: number;
+}
+const smoke = new Map<string, Puff[]>();
+const smokeCarry = new Map<string, number>();
+const lastSpeed = new Map<string, number>();
+let lastTime = -1;
+let lastScroll = 0;
+const MAX_PUFFS = 70;
+
+function stepSmoke(t: number, scroll: number): number {
+  const dt = lastTime < 0 || t < lastTime ? 0 : Math.min(0.05, t - lastTime);
+  const reset = lastTime >= 0 && t < lastTime; // a new race started
+  const dScroll = reset || scroll < lastScroll ? 0 : Math.min(60, scroll - lastScroll);
+  if (reset) {
+    smoke.clear();
+    smokeCarry.clear();
+    lastSpeed.clear();
+  }
+  lastTime = t;
+  lastScroll = scroll;
+  for (const list of smoke.values()) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const p = list[i];
+      p.age += dt;
+      if (p.age >= p.life) {
+        list.splice(i, 1);
+        continue;
+      }
+      // the world scrolls past, so smoke left behind slides backwards on screen
+      p.x += p.vx * dt - dScroll;
+      p.y += p.vy * dt;
+      p.size += p.grow * dt;
+    }
+  }
+  return dt;
+}
+
+function emitSmoke(id: string, ex: number, ey: number, L: number, speed: number, dt: number) {
+  let list = smoke.get(id);
+  if (!list) {
+    list = [];
+    smoke.set(id, list);
+  }
+  const prev = lastSpeed.get(id) ?? speed;
+  lastSpeed.set(id, speed);
+  if (dt <= 0) return;
+  const accel = Math.max(0, (speed - prev) / dt);
+  const rate = speed > 0.04 ? 10 + 42 * speed + Math.min(60, accel * 30) : 3;
+  let carry = (smokeCarry.get(id) ?? 0) + rate * dt;
+  while (carry >= 1 && list.length < MAX_PUFFS) {
+    carry -= 1;
+    list.push({
+      x: ex + (Math.random() - 0.5) * 3,
+      y: ey + (Math.random() - 0.5) * 3,
+      vx: -(8 + Math.random() * 26) * (0.6 + speed),
+      vy: -(7 + Math.random() * 16),
+      age: 0,
+      life: 0.7 + Math.random() * 0.8 + speed * 0.4,
+      size: L * (0.035 + Math.random() * 0.02),
+      grow: L * (0.16 + speed * 0.3 + Math.random() * 0.1),
+    });
+  }
+  smokeCarry.set(id, Math.min(carry, 3));
+}
+
+function drawSmoke(c: CanvasRenderingContext2D, id: string, dark: boolean) {
+  const list = smoke.get(id);
+  if (!list) return;
+  for (const p of list) {
+    const k = p.age / p.life;
+    const a = 0.75 * (1 - k) * (1 - k);
+    const base = dark ? '190,196,215' : '236,238,244';
+    const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+    g.addColorStop(0, `rgba(${base},${a})`);
+    g.addColorStop(1, `rgba(${base},0)`);
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
 export function drawHighway(ctx: CanvasRenderingContext2D, w: number, h: number, state: RenderState) {
   const look = LOOKS[(state.track?.theme ?? 0) % LOOKS.length];
   const t = state.time;
@@ -210,6 +517,7 @@ export function drawHighway(ctx: CanvasRenderingContext2D, w: number, h: number,
   const laneH = (roadBottom - roadTop) / n;
 
   ctx.clearRect(0, 0, w, h);
+  const smokeDt = stepSmoke(t, sc);
 
   // sky
   const sky = ctx.createLinearGradient(0, 0, 0, horizon + 4);
@@ -301,7 +609,7 @@ export function drawHighway(ctx: CanvasRenderingContext2D, w: number, h: number,
   const myP = me ? me.progress : 0;
   const youX = w * 0.3;
   const span = w * 2.4;
-  const len = clamp(laneH * 1.8, 28, 92);
+  const len = clamp(laneH * 2.15, 30, 130);
 
   const startX = youX - myP * span;
   if (startX > -20 && startX < w + 20) {
@@ -383,14 +691,17 @@ export function drawHighway(ctx: CanvasRenderingContext2D, w: number, h: number,
         ctx.stroke();
       }
     }
-    // oblique camera: squash the top-down car a little and give it a ground shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    // ground shadow, exhaust smoke (behind the car), then the car itself
+    const groundY = cy + cl * 0.2;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(cx, cy + cl * 0.22, cl * 0.52, cl * 0.17, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, groundY + cl * 0.01, cl * 0.52, cl * 0.06, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.translate(cx, cy);
-    ctx.scale(1, 0.84);
-    drawCarTop(ctx, 0, 0, 0, cl, def, reduce ? 0 : Math.max(0, (car.speed - 0.6) / 0.4), t, car.skin);
+    if (!reduce) {
+      emitSmoke(car.id, cx - cl * 0.52, groundY - cl * 0.09, cl, car.speed, smokeDt);
+      drawSmoke(ctx, car.id, look.stars || look.kind === 'volcano' || look.kind === 'harbor');
+    }
+    drawCar3D(ctx, cx, groundY, cl, def, { speed: car.speed, time: t, skin: car.skin, wheelSpin: sc * 0.05 + index });
     ctx.restore();
 
     const label = car.finished && car.position ? `${car.position}. ${car.name}` : car.dnf ? `${car.name} (out)` : car.name;

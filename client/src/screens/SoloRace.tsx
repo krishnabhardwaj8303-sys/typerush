@@ -271,6 +271,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
         return;
       }
       audio.key();
+      audio.rev();
       recentKeys.current.push(performance.now());
       setPos(session.pos);
       if (result === 'done') finishPlayer();
@@ -344,6 +345,7 @@ export function SoloRace({ config, onExit, onRetry, onNext }: Props) {
           setCountdown(0);
           raceMsRef.current = 0;
           audio.startEngine();
+          audio.launch();
           setPhase('racing');
         }
       } else if (phase === 'racing' || phase === 'finishing') {
